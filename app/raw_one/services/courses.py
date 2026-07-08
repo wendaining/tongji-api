@@ -16,16 +16,19 @@ async def query_courses(
     page: int,
     page_size: int,
 ) -> Any:
-    payload = {
-        "condition": {
-            "trainingLevel": training_level,
-            "campus": campus,
-            "calendar": calendar,
-            "college": college,
-            "course": course,
-            "ids": [],
-            "isChineseTeaching": None,
-        },
+    """Ref: XiaLing233 uses form-encoded POST bodies — align here too.
+
+    Nested condition fields are flattened with dot notation as Spring MVC
+    expects for form-encoded nested objects.
+    """
+    payload: dict[str, Any] = {
+        "condition.trainingLevel": training_level,
+        "condition.campus": campus,
+        "condition.calendar": calendar or "",
+        "condition.college": college,
+        "condition.course": course,
+        "condition.ids": "",
+        "condition.isChineseTeaching": "",
         "pageNum_": page,
         "pageSize_": page_size,
     }
@@ -33,6 +36,5 @@ async def query_courses(
         "POST",
         "/api/arrangementservice/manualArrange/page",
         params={"profile": ""},
-        json_body=payload,
+        data=payload,
     )
-
