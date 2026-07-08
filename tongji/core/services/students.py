@@ -45,3 +45,33 @@ async def status_profession_list(client: RawOneClient) -> Any:
         "/api/studentservice/studentInfo/findStatusProfessionList",
         data={},
     )
+
+
+async def get_status_info_by_student_id(client: RawOneClient, *, student_id: str) -> Any:
+    """Get student status info by student ID.
+
+    Ref: GET /api/studentservice/studentDetailInfo/getStatusInfoByStudentId
+    """
+    import time
+    return await client.request(
+        "GET",
+        "/api/studentservice/studentDetailInfo/getStatusInfoByStudentId",
+        params={"studentId": student_id, "_t": str(int(time.time() * 1000))},
+    )
+
+
+async def find_user_info_by_type(client: RawOneClient, *, user_id: str, type_: str) -> Any:
+    """Find user info by encrypted user ID and type.
+
+    Note: Both ``user_id`` and ``type_`` are AES-encrypted values obtained
+    from upstream (see XiaLing233's encrypt.py / encryptFilePath).
+    Pass them as-is from the source context.
+
+    Ref: GET /api/studentservice/studentInfo/findUserInfoByType
+    """
+    import time
+    return await client.request(
+        "GET",
+        "/api/studentservice/studentInfo/findUserInfoByType",
+        params={"userId": user_id, "type": type_, "_t": str(int(time.time() * 1000))},
+    )

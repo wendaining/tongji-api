@@ -6,10 +6,12 @@
 
 | 服务 | 端点 | 说明 |
 |------|------|------|
-| `sessionservice` | `ping`, `getSessionUser` | 登录态查询 |
+| `sessionservice` | `ping`, `getSessionUser`, `currentAuthId`, `setLanguage` | 登录态查询 / 权限切换 / 语言设置 |
 | `ssoservice` | `loginIn` | SSO 登录入口 |
 | `baseresservice` | `schoolCalendar/list`, `currentTermCalendar`, `currentWeek`, `detail` | 校历 |
-| `commonservice` | `commonMsgPublish/findHomePageCommonMsgPublish`, `findCommonMsgPublishList`, `findCommonMsgPublishById`, `myNotReadCommonMsgCount` | 通知公告 |
+| `electionservice` | `underGraduateExamSwitch/getDefaultType` | 本科生考试默认类型 |
+| `welcomeservice` | `tutorMeeting/queryByPage` | 新生导师见面会查询 |
+| `commonservice` | `commonMsgPublish/findHomePageCommonMsgPublish`, `findCommonMsgPublishList`, `findCommonMsgPublishById`, `myNotReadCommonMsgCount`, `dictionary/query` | 通知公告 / 字典查询 |
 | `arrangementservice` | `manualArrange/page` | 课程查询 |
 
 ## Phase 2 优先实现（学生端只读高频）

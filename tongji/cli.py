@@ -18,9 +18,11 @@ from tongji.core.session_store import SessionStore
 from tongji.core.services import (
     calendar as calendar_svc,
     courses as courses_svc,
+    exams as exams_svc,
     notices as notices_svc,
     session as session_svc,
     students as student_svc,
+    tutor_meetings as tutor_svc,
 )
 
 
@@ -296,6 +298,56 @@ async def cmd_calendar(action: str) -> None:
         await client.aclose()
 
 
+async def cmd_exams() -> None:
+    """Query exam schedule for the current term (undergraduate).
+
+    Runs the page initialization flow then prints the default exam type.
+    """
+    client = _load_client()
+    try:
+        # 1. Set auth context to undergraduate exam
+        await exams_svc.current_auth_id(client, auth_id=9102)
+
+        # 2. Get default exam type / batch
+        exam_type = await exams_svc.get_default_exam_type(client)
+
+        # 3. Fetch semesters for reference
+        semesters = await exams_svc.query_dictionary(
+            client, keys=["X_XQ"], auth_id=9102,
+        )
+
+        _print({
+            "default_exam_type": exam_type.get("data") or exam_type,
+            "semesters": semesters.get("data") or semesters,
+        })
+    finally:
+        await client.aclose()
+
+
+async def cmd_tutor_meetings(search_text: str, page: int, page_size: int) -> None:
+    """Query freshman tutor meetings (新生导师见面会).
+    """
+    client = _load_client()
+    try:
+        # 1. Set auth context to tutor meeting
+        await exams_svc.current_auth_id(client, auth_id=13087)
+
+        # 2. Set language
+        await session_svc.set_language(client)
+
+        # 3. Query tutor meetings
+        result = await tutor_svc.query_by_page(
+            client,
+            search_type="2",
+            search_text=search_text,
+            page=page,
+            page_size=page_size,
+        )
+        _print(result.get("data") or result)
+    finally:
+        await client.aclose()
+
+
 async def cmd_ping() -> None:
     client = _load_client()
     try:
@@ -343,8 +395,17 @@ def main():
     # scores
     subs.add_parser("scores", help="Course scores / grades")
 
+    # exams
+    subs.add_parser("exams", help="Exam schedule (undergraduate)")
+
     # plan
     subs.add_parser("plan", help="Culture plan / credit stats")
+
+    # tutor-meetings
+    tm_p = subs.add_parser("tutor-meetings", help="Freshman tutor meetings")
+    tm_p.add_argument("--search-text", default="")
+    tm_p.add_argument("--page", type=int, default=1)
+    tm_p.add_argument("--page-size", type=int, default=20)
 
     # timetable
     tt_p = subs.add_parser("timetable", help="Student course timetable")
@@ -392,6 +453,10 @@ def main():
         asyncio.run(cmd_calendar(args.action))
     elif args.command == "scores":
         asyncio.run(cmd_scores())
+    elif args.command == "exams":
+        asyncio.run(cmd_exams())
+    elif args.command == "tutor-meetings":
+        asyncio.run(cmd_tutor_meetings(args.search_text, args.page, args.page_size))
     elif args.command == "plan":
         asyncio.run(cmd_plan())
     elif args.command == "timetable":

@@ -221,6 +221,64 @@ def translate_grade_course(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Exam / 考试安排
+# ---------------------------------------------------------------------------
+
+DICTIONARY_ITEM_FIELDS = [
+    ("code", "编码"),
+    ("name", "名称"),
+    ("fullName", "全称"),
+    ("sort", "排序"),
+]
+
+
+def translate_dictionary_item(raw: dict[str, Any]) -> dict[str, Any]:
+    """Translate a dictionary item (e.g. semester, campus, exam type)."""
+    return {label: _pick(raw, code) for code, label in DICTIONARY_ITEM_FIELDS}
+
+
+EXAM_ARRANGE_FIELDS = [
+    ("courseName", "课程名称"),
+    ("courseCode", "课程代码"),
+    ("examDate", "考试日期"),
+    ("examTime", "考试时间"),
+    ("examLocation", "考试地点"),
+    ("seatNo", "座位号"),
+    ("campusName", "校区"),
+    ("examType", "考试类型"),
+    ("credit", "学分"),
+    ("teacherName", "任课教师"),
+]
+
+
+def translate_exam_arrange(raw: dict[str, Any]) -> dict[str, Any]:
+    """Translate a single exam arrangement entry."""
+    return {label: _pick(raw, code) for code, label in EXAM_ARRANGE_FIELDS}
+
+
+# ---------------------------------------------------------------------------
+# Tutor meeting / 新生导师见面会
+# ---------------------------------------------------------------------------
+
+TUTOR_MEETING_FIELDS = [
+    ("id", "ID"),
+    ("meetingName", "见面会名称"),
+    ("meetingTime", "见面会时间"),
+    ("meetingLocation", "见面会地点"),
+    ("tutorName", "导师姓名"),
+    ("tutorTitle", "导师职称"),
+    ("collegeName", "学院"),
+    ("status", "状态"),
+    ("remark", "备注"),
+]
+
+
+def translate_tutor_meeting(raw: dict[str, Any]) -> dict[str, Any]:
+    """Translate a single tutor meeting entry."""
+    return {label: _pick(raw, code) for code, label in TUTOR_MEETING_FIELDS}
+
+
+# ---------------------------------------------------------------------------
 # Generic helper
 # ---------------------------------------------------------------------------
 

@@ -20,6 +20,9 @@ python -m tongji <command> [options]
 | `courses` | 课程查询 | `python -m tongji courses --calendar 121` |
 | `calendar list` | 校历列表 | `python -m tongji calendar list` |
 | `calendar current-term` | 当前学期 | `python -m tongji calendar current-term` |
+| `exams` | 考试安排查询 | `python -m tongji exams` |
+| `tutor-meetings` | 新生导师见面会 | `python -m tongji tutor-meetings` |
+| `scores` | 课程成绩/绩点 | `python -m tongji scores` |
 | `ping` | 测试连接 | `python -m tongji ping` |
 | `login` | 登录 | `python -m tongji login` |
 
@@ -46,6 +49,9 @@ python -m tongji serve --port 8000
 | `/calendar/list` | 校历列表 |
 | `/calendar/current-term` | 当前学期 |
 | `/calendar/{id}` | 校历详情 |
+| `/exams/info` | 考试安排基本信息（默认考试类型、学期列表）|
+| `/exams/dictionary` | 字典查询（?keys=X_XQ&authId=9102） |
+| `/tutor-meetings` | 新生导师见面会（?searchText=&page=&page_size=）|
 | `/session/ping` | 测试 1 系统连接 |
 | `/healthz` | 健康检查 |
 
@@ -92,6 +98,20 @@ python -m tongji calendar list
 ```bash
 python -m tongji courses --calendar <id>
 # or GET /courses?calendar=<id>
+```
+
+### 用户问"考试 / 考试安排 / 什么时候考试"
+
+```bash
+python -m tongji exams
+# or GET /exams/info
+```
+
+### 用户问"导师见面会 / 新生导师 / 见面会安排"
+
+```bash
+python -m tongji tutor-meetings
+# or GET /tutor-meetings
 ```
 
 ## 登录态失效处理

@@ -13,16 +13,18 @@ from fastapi import FastAPI, Query
 
 from tongji.core.config import get_settings
 from tongji.core.client import RawOneClient
-from tongji.core.dict import translate_calendar, translate_course, translate_credit_stats, translate_grade_course, translate_grade_term, translate_notice, translate_plan_course, translate_timetable
+from tongji.core.dict import translate_calendar, translate_course, translate_credit_stats, translate_dictionary_item, translate_exam_arrange, translate_grade_course, translate_grade_term, translate_notice, translate_plan_course, translate_timetable, translate_tutor_meeting
 from tongji.core.errors import register_error_handlers
 from tongji.core.logging import configure_logging
 from tongji.core.session_store import SessionStore
 from tongji.core.services import (
     calendar as calendar_svc,
     courses as courses_svc,
+    exams as exams_svc,
     notices as notices_svc,
     session as session_svc,
     students as student_svc,
+    tutor_meetings as tutor_svc,
     culture as culture_svc,
     grades as grades_svc,
     timetable as timetable_svc,
@@ -239,6 +241,76 @@ def create_app() -> FastAPI:
                 "挂科数": data.get("failingCourseCount"),
                 "学期": terms,
             }
+        return result
+
+    # ------------------------------------------------------------------
+    # Exams
+    # ------------------------------------------------------------------
+    @app.get("/exams/info", tags=["exams"])
+    async def exams_info():
+        """Return default exam type and semester list."""
+        client = _get_client()
+        await exams_svc.current_auth_id(client, auth_id=9102)
+        exam_type = await exams_svc.get_default_exam_type(client)
+        semesters = await exams_svc.query_dictionary(
+            client, keys=["X_XQ"], auth_id=9102,
+        )
+        return {
+            "default_exam_type": exam_type.get("data") or exam_type,
+            "semesters": semesters.get("data") or semesters,
+        }
+
+    @app.get("/exams/dictionary", tags=["exams"])
+    async def exams_dictionary(
+        keys: str = Query(..., description="Comma-separated dictionary keys, e.g. X_XQ"),
+        auth_id: int | None = Query(default=None, alias="authId"),
+        translated: bool = Query(default=False),
+    ):
+        """Query system dictionary for reference data (semesters, exam types, etc.)."""
+        key_list = [k.strip() for k in keys.split(",")]
+        result = await exams_svc.query_dictionary(
+            _get_client(), keys=key_list, auth_id=auth_id,
+        )
+        if translated:
+            data = result.get("data")
+            if isinstance(data, dict):
+                # Dictionary data is keyed — translate each child list
+                out = {}
+                for k, v in data.items():
+                    if isinstance(v, list):
+                        out[k] = [translate_dictionary_item(i) if isinstance(i, dict) else i for i in v]
+                    else:
+                        out[k] = v
+                return out
+            return result
+        return result
+
+    # ------------------------------------------------------------------
+    # Tutor Meetings
+    # ------------------------------------------------------------------
+    @app.get("/tutor-meetings", tags=["tutor-meetings"])
+    async def tutor_meetings(
+        search_text: str = Query(default="", alias="searchText"),
+        page: int = Query(default=1, ge=1),
+        page_size: int = Query(default=20, ge=1, le=100),
+        translated: bool = Query(default=False),
+    ):
+        """Query freshman tutor meetings (新生导师见面会)."""
+        client = _get_client()
+        await exams_svc.current_auth_id(client, auth_id=13087)
+        await session_svc.set_language(client)
+        result = await tutor_svc.query_by_page(
+            client,
+            search_type="2",
+            search_text=search_text,
+            page=page,
+            page_size=page_size,
+        )
+        if translated:
+            data = result.get("data") or {}
+            lst = data.get("list") or []
+            data["list"] = [translate_tutor_meeting(r) for r in lst]
+            return data
         return result
 
     @app.get("/session/ping", tags=["session"])

@@ -347,3 +347,4 @@ openapi.local.json
 openapi.local.yaml
 schema.local.json
 schema.local.yaml
+.claude/
