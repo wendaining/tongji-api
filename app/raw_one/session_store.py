@@ -20,6 +20,7 @@ class SessionRecord(BaseModel):
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     last_validated_at: datetime | None = None
+    metadata: dict[str, str] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -101,6 +102,17 @@ class SessionStore:
             cookies.append(f"JSESSIONID={record.jsessionid}")
         cookies.append(f"sessionid={record.sessionid}")
         return "; ".join(cookies)
+
+    def set_metadata(self, key: str, value: str) -> None:
+        with self._lock:
+            existing = self.read()
+            if not existing:
+                return
+            existing.metadata[key] = value
+            existing.updated_at = utc_now()
+            tmp_path = self.path.with_suffix(self.path.suffix + ".tmp")
+            tmp_path.write_text(existing.model_dump_json(indent=2), encoding="utf-8")
+            tmp_path.replace(self.path)
 
     def mark_validated(self) -> SessionRecord | None:
         with self._lock:
