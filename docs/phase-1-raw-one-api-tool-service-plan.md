@@ -1,7 +1,5 @@
 # one-dot-tongji-api 第一阶段规划
 
-规划日期：2026-07-08
-
 ## 1. 项目定位
 
 `one-dot-tongji-api` 是一个部署在个人服务器上的同济 1 系统 raw API 工具层，不是前端网页应用。它面向 AstrBot、Agent、脚本或其他自动化服务提供 HTTP 工具接口，由调用方把自然语言意图转换成结构化调用。
@@ -19,7 +17,7 @@ QQ / 微信
 
 ## 2. 非目标和边界
 
-第一阶段明确不做：
+明确不做：
 
 - 不做普通网页应用、管理后台或可视化页面。
 - 不接入同济开放平台 `https://api.tongji.edu.cn/v1/...`。
@@ -392,20 +390,7 @@ Authorization: Bearer <TJ_API_TOKEN>
 
 ## 14. 缓存和限流
 
-第一阶段使用进程内短缓存即可：
-
-- 当前教学周：缓存 5 分钟。
-- 当前学期：缓存 30 分钟。
-- 校历列表：缓存 6 小时。
-- 通知列表：缓存 1 到 5 分钟。
-- 通知详情：缓存 10 分钟。
-- 课程查询：缓存 1 到 5 分钟，按查询参数分 key。
-
-限流策略：
-
-- 对单 token 做简单滑动窗口。
-- 默认每分钟 60 次以内。
-- 对通知列表和课程查询可以更低，例如每分钟 20 次。
+第一阶段不做这些。
 
 ## 15. 测试策略
 
@@ -420,7 +405,7 @@ Authorization: Bearer <TJ_API_TOKEN>
 - 管理接口需要 Bearer token。
 - 无 `TJ_API_TOKEN` 时启动失败。
 
-手动验收：
+验收：
 
 1. 设置 `TJ_API_TOKEN`。
 2. 启动服务。
@@ -475,7 +460,7 @@ Authorization: Bearer <TJ_API_TOKEN>
 - 使用 RSA 加密密码。
 - 处理 `ActionAuthChain`、`AuthnEngine`、SSO redirect、`session/login`。
 - 支持邮箱验证码或人工输入验证码。
-- 仍然避免长期保存明文密码，优先使用一次性输入、外部 secret manager 或用户主动刷新 session。
+- 可以把账号密码存入环境变量中
 
 第三阶段可以整理 raw-one API 知识库：
 
