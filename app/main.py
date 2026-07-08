@@ -10,6 +10,7 @@ from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
 from app.core.responses import ok
 from app.raw_one.client import RawOneClient
+from app.raw_one.login import ProgrammaticLoginManager
 from app.raw_one.session_store import SessionStore
 from app.tools import routes_admin, routes_calendar, routes_courses, routes_notices, routes_session
 
@@ -23,18 +24,29 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     session_store = SessionStore(
         settings.session_store_path,
         initial_sessionid=settings.sessionid,
+        initial_jsessionid=settings.jsessionid,
     )
     raw_one_client = RawOneClient(
         base_url=settings.normalized_one_base_url,
         timeout_seconds=settings.request_timeout_seconds,
         session_store=session_store,
     )
+    login_manager = ProgrammaticLoginManager(
+        username=settings.iam_username,
+        password=settings.iam_password,
+        one_base_url=settings.normalized_one_base_url,
+        timeout_seconds=settings.request_timeout_seconds,
+        session_store=session_store,
+        pending_ttl_seconds=settings.login_expires_seconds,
+    )
     app.state.session_store = session_store
     app.state.raw_one_client = raw_one_client
+    app.state.login_manager = login_manager
 
     try:
         yield
     finally:
+        await login_manager.aclose()
         await raw_one_client.aclose()
 
 
@@ -59,4 +71,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-

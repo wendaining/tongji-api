@@ -9,6 +9,8 @@ SENSITIVE_KEYS = {
     "authorization",
     "cookie",
     "jsessionid",
+    "j_password",
+    "password",
     "sessionid",
     "token",
     "x-token",
@@ -17,6 +19,7 @@ SENSITIVE_KEYS = {
 SENSITIVE_PATTERNS = [
     re.compile(r"(sessionid=)[^;\s]+", re.IGNORECASE),
     re.compile(r"(JSESSIONID=)[^;\s]+", re.IGNORECASE),
+    re.compile(r"(j_password=)[^&\s]+", re.IGNORECASE),
     re.compile(r"(X-Token:\s*)[^\s]+", re.IGNORECASE),
     re.compile(r"(Authorization:\s*Bearer\s+)[^\s]+", re.IGNORECASE),
     re.compile(r"([?&]token=)[^&\s]+", re.IGNORECASE),
