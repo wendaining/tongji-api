@@ -212,6 +212,32 @@ async def cmd_timetable(calendar: int | None) -> None:
         await client.aclose()
 
 
+async def cmd_plan() -> None:
+    from tongji.core.dict import translate_credit_stats, translate_plan_course
+    from tongji.core.services import culture as culture_svc
+
+    client = _load_client()
+    try:
+        stu_result = await student_svc.student_info_list(client, page=1, page_size=1)
+        students = (stu_result.get("data") or {}).get("list", [])
+        if not students:
+            _print("无法获取学生信息。", ok=False)
+            return
+        sid = students[0].get("studentId", "")
+
+        # Credit stats
+        credit_raw = await culture_svc.stats_credit(client, student_id=sid)
+        credits = translate_credit_stats(credit_raw.get("data") or {})
+
+        # Plan course tabs
+        plan_raw = await culture_svc.plan_course_tab(client, student_id=sid)
+        plan_courses = [translate_plan_course(c) for c in (plan_raw.get("data") or [])]
+
+        _print({"学号": sid, "学分概况": credits, "课程模块": plan_courses})
+    finally:
+        await client.aclose()
+
+
 async def cmd_calendar(action: str) -> None:
     from tongji.core.dict import translate_calendar
 
@@ -279,6 +305,9 @@ def main():
     cal_p = subs.add_parser("calendar", help="Calendar operations")
     cal_p.add_argument("action", choices=["list", "current-term", "current-week"])
 
+    # plan
+    subs.add_parser("plan", help="Culture plan / credit stats")
+
     # timetable
     tt_p = subs.add_parser("timetable", help="Student course timetable")
     tt_p.add_argument("--calendar", type=int, default=None)
@@ -323,6 +352,8 @@ def main():
         asyncio.run(cmd_courses(args.calendar, args.page, args.page_size))
     elif args.command == "calendar":
         asyncio.run(cmd_calendar(args.action))
+    elif args.command == "plan":
+        asyncio.run(cmd_plan())
     elif args.command == "timetable":
         asyncio.run(cmd_timetable(args.calendar))
     elif args.command == "ping":

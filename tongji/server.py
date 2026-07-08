@@ -13,7 +13,7 @@ from fastapi import FastAPI, Query
 
 from tongji.core.config import get_settings
 from tongji.core.client import RawOneClient
-from tongji.core.dict import translate_calendar, translate_course, translate_notice, translate_timetable
+from tongji.core.dict import translate_calendar, translate_course, translate_credit_stats, translate_notice, translate_plan_course, translate_timetable
 from tongji.core.errors import register_error_handlers
 from tongji.core.logging import configure_logging
 from tongji.core.session_store import SessionStore
@@ -23,6 +23,7 @@ from tongji.core.services import (
     notices as notices_svc,
     session as session_svc,
     students as student_svc,
+    culture as culture_svc,
     timetable as timetable_svc,
 )
 
@@ -168,6 +169,29 @@ def create_app() -> FastAPI:
         if translated:
             cal = result.get("data") or {}
             return translate_calendar(cal)
+        return result
+
+    # ------------------------------------------------------------------
+    # Culture Plan
+    # ------------------------------------------------------------------
+    @app.get("/plan/credits", tags=["plan"])
+    async def plan_credits(
+        student_id: str = Query(alias="studentId"),
+        translated: bool = Query(default=False),
+    ):
+        result = await culture_svc.stats_credit(_get_client(), student_id=student_id)
+        if translated:
+            return translate_credit_stats(result.get("data") or {})
+        return result
+
+    @app.get("/plan/courses", tags=["plan"])
+    async def plan_courses(
+        student_id: str = Query(alias="studentId"),
+        translated: bool = Query(default=False),
+    ):
+        result = await culture_svc.plan_course_tab(_get_client(), student_id=student_id)
+        if translated:
+            return [translate_plan_course(c) for c in (result.get("data") or [])]
         return result
 
     # ------------------------------------------------------------------

@@ -154,6 +154,37 @@ def translate_timetable(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Culture plan (培养方案)
+# ---------------------------------------------------------------------------
+
+CREDIT_STATS_FIELDS = [
+    ("totalCultureCredit", "要求总学分"),
+    ("totalGetCredit", "已获学分"),
+    ("totalPlanCredit", "培养方案总学分"),
+    ("completed", "是否完成"),
+]
+
+PLAN_COURSE_FIELDS = [
+    ("labName", "模块名称"),
+    ("courseCode", "课程代码"),
+    ("newCourseCode", "新课程代码"),
+    ("score", "学分"),
+    ("scoreLevel", "成绩等级"),
+    ("parentLabName", "父模块"),
+]
+
+
+def translate_credit_stats(raw: dict[str, Any]) -> dict[str, Any]:
+    """Translate credit statistics."""
+    return {label: _pick(raw, code) for code, label in CREDIT_STATS_FIELDS}
+
+
+def translate_plan_course(raw: dict[str, Any]) -> dict[str, Any]:
+    """Translate a plan course entry."""
+    return {label: _pick(raw, code) for code, label in PLAN_COURSE_FIELDS}
+
+
+# ---------------------------------------------------------------------------
 # Generic helper
 # ---------------------------------------------------------------------------
 
