@@ -166,6 +166,8 @@ async def cmd_notice_detail(notice_id: str) -> None:
 
 
 async def cmd_courses(calendar: int | None, page: int, page_size: int) -> None:
+    from tongji.core.dict import translate_course
+
     client = _load_client()
     try:
         result = await courses_svc.query_courses(
@@ -178,7 +180,9 @@ async def cmd_courses(calendar: int | None, page: int, page_size: int) -> None:
             page=page,
             page_size=page_size,
         )
-        _print(result)
+        data = result.get("data") or {}
+        translated = [translate_course(r) for r in (data.get("rows") or [])]
+        _print({"total": data.get("total_"), "page": data.get("pageNum_"), "items": translated})
     finally:
         await client.aclose()
 

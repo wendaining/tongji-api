@@ -13,7 +13,7 @@ from fastapi import FastAPI, Query
 
 from tongji.core.config import get_settings
 from tongji.core.client import RawOneClient
-from tongji.core.dict import translate_calendar, translate_notice
+from tongji.core.dict import translate_calendar, translate_course, translate_notice
 from tongji.core.errors import register_error_handlers
 from tongji.core.logging import configure_logging
 from tongji.core.session_store import SessionStore
@@ -127,12 +127,17 @@ def create_app() -> FastAPI:
         calendar: int | None = Query(default=None),
         page: int = Query(default=1, ge=1),
         page_size: int = Query(default=20, ge=1, le=200),
+        translated: bool = Query(default=False),
     ):
-        return await courses_svc.query_courses(
+        result = await courses_svc.query_courses(
             _get_client(),
             calendar=calendar, campus="", college="", course="",
             training_level="", page=page, page_size=page_size,
         )
+        if translated:
+            data = result.get("data") or {}
+            data["rows"] = [translate_course(r) for r in (data.get("rows") or [])]
+        return result
 
     # ------------------------------------------------------------------
     # Calendar

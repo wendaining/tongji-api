@@ -105,6 +105,32 @@ def translate_notice(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Course
+# ---------------------------------------------------------------------------
+
+COURSE_LABEL_FIELDS = [
+    ("name", "课程名称"),
+    ("teacher", "教师"),
+    ("classroom", "教室"),
+    ("week", "周次"),
+    ("day", "星期"),
+    ("period", "节次"),
+    ("campus", "校区"),
+    ("college", "学院"),
+    ("profession", "专业"),
+    ("trainingLevel", "培养层次"),
+    ("credit", "学分"),
+    ("courseCode", "课程代码"),
+    ("studentCount", "学生人数"),
+]
+
+
+def translate_course(raw: dict[str, Any]) -> dict[str, Any]:
+    """Translate a course record."""
+    return {label: _pick(raw, code) for code, label in COURSE_LABEL_FIELDS}
+
+
+# ---------------------------------------------------------------------------
 # Generic helper
 # ---------------------------------------------------------------------------
 
