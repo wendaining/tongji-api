@@ -125,26 +125,14 @@ async def cmd_login_mfa(login_id: str, code: str) -> None:
 
 
 async def cmd_me() -> None:
+    from tongji.core.dict import translate_student
+
     client = _load_client()
     try:
         result = await student_svc.student_info_list(client, page=1, page_size=1)
-        data = result.get("data", {})
-        students = data.get("list", [])
+        students = (result.get("data") or {}).get("list", [])
         if students:
-            s = students[0]
-            _print({
-                "学号": s.get("studentId"),
-                "姓名": s.get("name"),
-                "性别": ("男" if s.get("sex") == 1 else "女"),
-                "年级": f"{s.get('grade')}级" if s.get("grade") else None,
-                "校区": s.get("campus"),
-                "学院": s.get("faculty"),
-                "专业": s.get("profession"),
-                "培养层次": s.get("trainingLevel"),
-                "学习形式": s.get("formLearning"),
-                "入学日期": s.get("enrolDate"),
-                "学籍状态": s.get("registrationStatus"),
-            })
+            _print(translate_student(students[0]))
         else:
             _print("未找到学生信息。", ok=False)
     finally:
