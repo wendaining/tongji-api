@@ -13,7 +13,7 @@ from fastapi import FastAPI, Query
 
 from tongji.core.config import get_settings
 from tongji.core.client import RawOneClient
-from tongji.core.dict import translate_notice
+from tongji.core.dict import translate_calendar, translate_notice
 from tongji.core.errors import register_error_handlers
 from tongji.core.logging import configure_logging
 from tongji.core.session_store import SessionStore
@@ -138,20 +138,31 @@ def create_app() -> FastAPI:
     # Calendar
     # ------------------------------------------------------------------
     @app.get("/calendar/list", tags=["calendar"])
-    async def calendar_list():
-        return await calendar_svc.list_calendars(_get_client())
+    async def calendar_list(translated: bool = Query(default=False)):
+        result = await calendar_svc.list_calendars(_get_client())
+        if translated:
+            return [translate_calendar(c) for c in (result.get("data") or [])]
+        return result
 
     @app.get("/calendar/current-term", tags=["calendar"])
-    async def calendar_current_term():
-        return await calendar_svc.current_term(_get_client())
+    async def calendar_current_term(translated: bool = Query(default=False)):
+        result = await calendar_svc.current_term(_get_client())
+        if translated:
+            cal = (result.get("data") or {}).get("schoolCalendar") or {}
+            return translate_calendar(cal)
+        return result
 
     @app.get("/calendar/current-week", tags=["calendar"])
     async def calendar_current_week():
         return await calendar_svc.current_week(_get_client())
 
     @app.get("/calendar/{calendar_id}", tags=["calendar"])
-    async def calendar_detail(calendar_id: str):
-        return await calendar_svc.calendar_detail(_get_client(), calendar_id)
+    async def calendar_detail(calendar_id: str, translated: bool = Query(default=False)):
+        result = await calendar_svc.calendar_detail(_get_client(), calendar_id)
+        if translated:
+            cal = result.get("data") or {}
+            return translate_calendar(cal)
+        return result
 
     # ------------------------------------------------------------------
     # Session

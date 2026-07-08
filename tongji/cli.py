@@ -184,18 +184,24 @@ async def cmd_courses(calendar: int | None, page: int, page_size: int) -> None:
 
 
 async def cmd_calendar(action: str) -> None:
+    from tongji.core.dict import translate_calendar
+
     client = _load_client()
     try:
         if action == "list":
             result = await calendar_svc.list_calendars(client)
+            raw_list = (result.get("data") or [])
+            _print({"items": [translate_calendar(c) for c in raw_list]})
         elif action == "current-term":
             result = await calendar_svc.current_term(client)
+            cal = (result.get("data") or {}).get("schoolCalendar") or {}
+            _print(translate_calendar(cal))
         elif action == "current-week":
             result = await calendar_svc.current_week(client)
+            _print(result)
         else:
             _print(f"Unknown calendar action: {action}", ok=False)
             return
-        _print(result)
     finally:
         await client.aclose()
 
