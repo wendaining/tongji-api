@@ -192,6 +192,35 @@ def translate_plan_course(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Grades
+# ---------------------------------------------------------------------------
+
+GRADE_TERM_FIELDS = [
+    ("termName", "学期"),
+    ("averagePoint", "学期均绩"),
+    ("calName", "学期代码"),
+]
+
+
+def translate_grade_term(raw: dict[str, Any]) -> dict[str, Any]:
+    """Translate a grade term summary."""
+    return {label: _pick(raw, code) for code, label in GRADE_TERM_FIELDS}
+
+
+def translate_grade_course(raw: dict[str, Any]) -> dict[str, Any]:
+    """Translate a single course grade entry."""
+    return {
+        "课程名称": _pick(raw, "courseName"),
+        "代码": _pick(raw, "courseCode"),
+        "成绩": _pick(raw, "scoreName"),
+        "绩点": _pick(raw, "gradePoint"),
+        "是否通过": "是" if raw.get("isPass") == 1 else "否",
+        "考试类型": _pick(raw, "scoreEaxmTypeI18n"),
+        "成绩性质": _pick(raw, "scoreNatureName"),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Generic helper
 # ---------------------------------------------------------------------------
 

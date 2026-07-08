@@ -213,8 +213,8 @@ async def cmd_timetable(calendar: int | None) -> None:
 
 
 async def cmd_scores() -> None:
-    from tongji.core.dict import translate_plan_course
-    from tongji.core.services import culture as culture_svc
+    from tongji.core.dict import translate_grade_term, translate_grade_course
+    from tongji.core.services import grades as grades_svc
 
     client = _load_client()
     try:
@@ -225,16 +225,24 @@ async def cmd_scores() -> None:
             return
         sid = students[0].get("studentId", "")
 
-        plan_raw = await culture_svc.plan_course_tab(client, student_id=sid)
-        all_courses = plan_raw.get("data") or []
-        # Only courses with a score
-        scored = [translate_plan_course(c) for c in all_courses if c.get("score") is not None]
+        result = await grades_svc.get_my_grades(client, student_id=sid)
+        data = result.get("data") or {}
 
-        credit_raw = await culture_svc.stats_credit(client, student_id=sid)
-        from tongji.core.dict import translate_credit_stats
-        credits = translate_credit_stats(credit_raw.get("data") or {})
+        terms = []
+        for t in (data.get("term") or []):
+            terms.append({
+                **translate_grade_term(t),
+                "课程": [translate_grade_course(c) for c in (t.get("creditInfo") or [])],
+            })
 
-        _print({"学号": sid, "学分概况": credits, "已出成绩": len(scored), "课程": scored})
+        _print({
+            "学号": sid,
+            "总绩点": data.get("totalGradePoint"),
+            "总学分": data.get("actualCredit"),
+            "挂科学分": data.get("failingCredits"),
+            "挂科数": data.get("failingCourseCount"),
+            "学期": terms,
+        })
     finally:
         await client.aclose()
 

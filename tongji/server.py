@@ -13,7 +13,7 @@ from fastapi import FastAPI, Query
 
 from tongji.core.config import get_settings
 from tongji.core.client import RawOneClient
-from tongji.core.dict import translate_calendar, translate_course, translate_credit_stats, translate_notice, translate_plan_course, translate_timetable
+from tongji.core.dict import translate_calendar, translate_course, translate_credit_stats, translate_grade_course, translate_grade_term, translate_notice, translate_plan_course, translate_timetable
 from tongji.core.errors import register_error_handlers
 from tongji.core.logging import configure_logging
 from tongji.core.session_store import SessionStore
@@ -24,6 +24,7 @@ from tongji.core.services import (
     session as session_svc,
     students as student_svc,
     culture as culture_svc,
+    grades as grades_svc,
     timetable as timetable_svc,
 )
 
@@ -215,6 +216,29 @@ def create_app() -> FastAPI:
         )
         if translated:
             return [translate_timetable(r) for r in (result.get("data") or [])]
+        return result
+
+    @app.get("/grades", tags=["grades"])
+    async def my_grades(
+        student_id: str = Query(alias="studentId"),
+        translated: bool = Query(default=False),
+    ):
+        result = await grades_svc.get_my_grades(_get_client(), student_id=student_id)
+        if translated:
+            data = result.get("data") or {}
+            terms = []
+            for t in (data.get("term") or []):
+                terms.append({
+                    **translate_grade_term(t),
+                    "课程": [translate_grade_course(c) for c in (t.get("creditInfo") or [])],
+                })
+            return {
+                "总绩点": data.get("totalGradePoint"),
+                "总学分": data.get("actualCredit"),
+                "挂科学分": data.get("failingCredits"),
+                "挂科数": data.get("failingCourseCount"),
+                "学期": terms,
+            }
         return result
 
     @app.get("/session/ping", tags=["session"])
