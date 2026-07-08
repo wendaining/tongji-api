@@ -2,7 +2,7 @@
 
 `tongji-api` 是一个 FastAPI 服务，封装了 `https://1.tongji.edu.cn` 的部分原始 API，用于 AstrBot 和 agent 工具调用。
 
-第一阶段的范围有意保持精简：
+目前项目仍处于第一阶段：
 
 - 仅对接原始 `1.tongji.edu.cn`，而非 `api.tongji.edu.cn`
 - 通过粘贴最终的 `ssologin` URL 完成浏览器登录交接
