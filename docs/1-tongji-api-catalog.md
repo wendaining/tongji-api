@@ -6,12 +6,10 @@
 
 | 服务 | 端点 | 说明 |
 |------|------|------|
-| `sessionservice` | `ping`, `getSessionUser`, `currentAuthId`, `setLanguage` | 登录态查询 / 权限切换 / 语言设置 |
+| `sessionservice` | `ping`, `getSessionUser` | 登录态查询 |
 | `ssoservice` | `loginIn` | SSO 登录入口 |
 | `baseresservice` | `schoolCalendar/list`, `currentTermCalendar`, `currentWeek`, `detail` | 校历 |
-| `electionservice` | `underGraduateExamSwitch/getDefaultType` | 本科生考试默认类型 |
-| `welcomeservice` | `tutorMeeting/queryByPage` | 新生导师见面会查询 |
-| `commonservice` | `commonMsgPublish/findHomePageCommonMsgPublish`, `findCommonMsgPublishList`, `findCommonMsgPublishById`, `myNotReadCommonMsgCount`, `dictionary/query` | 通知公告 / 字典查询 |
+| `commonservice` | `commonMsgPublish/findHomePageCommonMsgPublish`, `findCommonMsgPublishList`, `findCommonMsgPublishById`, `myNotReadCommonMsgCount` | 通知公告 |
 | `arrangementservice` | `manualArrange/page` | 课程查询 |
 
 ## Phase 2 优先实现（学生端只读高频）
@@ -44,6 +42,8 @@ POST /api/electionservice/electionRound/page                    # 选课轮次
 POST /api/electionservice/elcLog/page                           # 选课日志
 POST /api/electionservice/schoolExamArrange/schoolExamArrangeQuery  # 排考查询
 POST /api/electionservice/undergraduateExamQuery/exportPrintingList # 考试安排
+POST /api/electionservice/elcMutualApply/page                   # 跨学科选课申请列表（已实现）
+GET  /api/electionservice/elcMutualCourses/findDept             # 跨学科选课院系列表（已实现）
 ```
 
 ### 4. 培养方案 `cultureservice`（只读）

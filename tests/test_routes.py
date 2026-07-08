@@ -33,3 +33,8 @@ def test_courses_no_session(client):
 def test_calendar_list_no_session(client):
     response = client.get("/calendar/list")
     assert response.status_code == 409
+
+
+def test_cross_courses_apply_no_session(client):
+    response = client.get("/cross-courses/apply?studentId=student-demo&calendarId=121")
+    assert response.status_code == 409

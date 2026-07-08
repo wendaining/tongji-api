@@ -2,7 +2,7 @@
 
 最后更新：2026-07-09
 
-## 已实现（8 个服务，10 个命令）
+## 已实现（9 个服务，11 个命令）
 
 | # | 服务 | 命令 | HTTP 端点 | 翻译 | 状态 |
 |---|------|------|-----------|------|------|
@@ -14,6 +14,7 @@
 | 6 | `culture` | `plan` | `/plan/credits`, `/plan/courses` | ✅ | ✅ |
 | 7 | `courses` | `courses` | `/courses` | ✅ | ⚠️ 暑假无数据 |
 | 8 | `timetable` | `timetable` | `/timetable` | ✅ | ⚠️ 暑假无数据 |
+| 9 | `elections` | `cross-courses` | `/cross-courses/apply` | ✅ | 跨学科选课申请 |
 
 ## 已知问题
 
@@ -59,6 +60,8 @@
 | `evaluationservice/questionnaireStudent/force` | oldStysteMyGrades | 评教强制问卷 |
 | `commonservice/dictionary/query` | oldStysteMyGrades | 字典查询（JSON body） |
 | `sessionservice/session/currentAuthId` | oldStysteMyGrades | 当前权限 ID |
+| `electionservice/elcMutualApply/page` | 跨学科选课申请 | 跨学科选课申请列表 |
+| `electionservice/elcMutualCourses/findDept` | 跨学科选课申请 | 跨学科选课院系列表 |
 
 ### 管理端/写入 API（后续阶段）
 
@@ -79,6 +82,7 @@ python -m tongji timetable       # 课表（暑假空）
 python -m tongji login           # 登录（自动 IMAP 收码）
 python -m tongji serve           # 启动 HTTP 服务
 python -m tongji ping            # 测试连接
+python -m tongji cross-courses --student-id student-demo --calendar 121  # 跨学科选课申请
 ```
 
 ## HTTP 端点速查
@@ -100,4 +104,5 @@ GET /calendar/current-week    ← 不可用
 GET /calendar/{id}
 GET /session/ping
 GET /session/me
+GET /cross-courses/apply
 ```
