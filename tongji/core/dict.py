@@ -173,7 +173,7 @@ PLAN_COURSE_FIELDS = [
     ("scoreLevel", "等级"),
     ("semester", "学期"),
     ("collegeI18n", "开课学院"),
-    ("compulsory", "必修"),
+    ("selCourse", "选修"),
 ]
 
 
@@ -184,7 +184,11 @@ def translate_credit_stats(raw: dict[str, Any]) -> dict[str, Any]:
 
 def translate_plan_course(raw: dict[str, Any]) -> dict[str, Any]:
     """Translate a plan course entry."""
-    return {label: _pick(raw, code) for code, label in PLAN_COURSE_FIELDS}
+    result = {label: _pick(raw, code) for code, label in PLAN_COURSE_FIELDS}
+    # selCourse: 0 = 必修, 1 = 选修
+    if "selCourse" in raw:
+        result["选修"] = "选修" if raw.get("selCourse") == 1 else "必修"
+    return result
 
 
 # ---------------------------------------------------------------------------
