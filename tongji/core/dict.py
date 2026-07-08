@@ -165,12 +165,15 @@ CREDIT_STATS_FIELDS = [
 ]
 
 PLAN_COURSE_FIELDS = [
-    ("labName", "模块名称"),
-    ("courseCode", "课程代码"),
-    ("newCourseCode", "新课程代码"),
-    ("score", "学分"),
-    ("scoreLevel", "成绩等级"),
-    ("parentLabName", "父模块"),
+    ("labName", "模块"),
+    ("courseName", "课程名称"),
+    ("courseCode", "代码"),
+    ("credits", "学分"),
+    ("score", "成绩"),
+    ("scoreLevel", "等级"),
+    ("semester", "学期"),
+    ("collegeI18n", "开课学院"),
+    ("compulsory", "必修"),
 ]
 
 

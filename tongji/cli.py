@@ -212,6 +212,33 @@ async def cmd_timetable(calendar: int | None) -> None:
         await client.aclose()
 
 
+async def cmd_scores() -> None:
+    from tongji.core.dict import translate_plan_course
+    from tongji.core.services import culture as culture_svc
+
+    client = _load_client()
+    try:
+        stu_result = await student_svc.student_info_list(client, page=1, page_size=1)
+        students = (stu_result.get("data") or {}).get("list", [])
+        if not students:
+            _print("未找到学生信息。", ok=False)
+            return
+        sid = students[0].get("studentId", "")
+
+        plan_raw = await culture_svc.plan_course_tab(client, student_id=sid)
+        all_courses = plan_raw.get("data") or []
+        # Only courses with a score
+        scored = [translate_plan_course(c) for c in all_courses if c.get("score") is not None]
+
+        credit_raw = await culture_svc.stats_credit(client, student_id=sid)
+        from tongji.core.dict import translate_credit_stats
+        credits = translate_credit_stats(credit_raw.get("data") or {})
+
+        _print({"学号": sid, "学分概况": credits, "已出成绩": len(scored), "课程": scored})
+    finally:
+        await client.aclose()
+
+
 async def cmd_plan() -> None:
     from tongji.core.dict import translate_credit_stats, translate_plan_course
     from tongji.core.services import culture as culture_svc
@@ -305,6 +332,9 @@ def main():
     cal_p = subs.add_parser("calendar", help="Calendar operations")
     cal_p.add_argument("action", choices=["list", "current-term", "current-week"])
 
+    # scores
+    subs.add_parser("scores", help="Course scores / grades")
+
     # plan
     subs.add_parser("plan", help="Culture plan / credit stats")
 
@@ -352,6 +382,8 @@ def main():
         asyncio.run(cmd_courses(args.calendar, args.page, args.page_size))
     elif args.command == "calendar":
         asyncio.run(cmd_calendar(args.action))
+    elif args.command == "scores":
+        asyncio.run(cmd_scores())
     elif args.command == "plan":
         asyncio.run(cmd_plan())
     elif args.command == "timetable":
