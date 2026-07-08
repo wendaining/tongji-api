@@ -3,9 +3,9 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from app.core.errors import SessionExpiredError
-from app.raw_one.client import RawOneClient
-from app.raw_one.session_store import SessionStore
+from tongji.core.errors import SessionExpiredError
+from tongji.core.client import RawOneClient
+from tongji.core.session_store import SessionStore
 
 
 @pytest.mark.asyncio

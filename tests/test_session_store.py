@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.raw_one.session_store import SessionStore
+from tongji.core.session_store import SessionStore
 
 
 def test_session_store_save_read_status_and_clear(tmp_path):

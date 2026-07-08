@@ -6,14 +6,14 @@ import httpx
 import pytest
 from Crypto.PublicKey import RSA
 
-from app.core.errors import AppError
-from app.raw_one.login import (
+from tongji.core.errors import AppError
+from tongji.core.login import (
     LoginResultStatus,
     ProgrammaticLoginFlow,
     ProgrammaticLoginManager,
     parse_ssologin_callback_url,
 )
-from app.raw_one.session_store import SessionStore
+from tongji.core.session_store import SessionStore
 
 
 def test_parse_ssologin_callback_url():
@@ -276,7 +276,7 @@ async def test_programmatic_login_manager_supports_manual_email_mfa(tmp_path):
 
     original_flow_class = ProgrammaticLoginFlow
     try:
-        import app.raw_one.login as login_module
+        import tongji.core.login as login_module
 
         login_module.ProgrammaticLoginFlow = TestFlow
         start_result = await manager.start_login()
@@ -291,7 +291,7 @@ async def test_programmatic_login_manager_supports_manual_email_mfa(tmp_path):
         assert final_result.status == LoginResultStatus.SUCCESS
         assert store.get_sessionid() == "one-session"
     finally:
-        import app.raw_one.login as login_module
+        import tongji.core.login as login_module
 
         login_module.ProgrammaticLoginFlow = original_flow_class
         await async_client.aclose()

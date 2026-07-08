@@ -1,16 +1,16 @@
 # tongji-api
 
-`tongji-api` 是一个 FastAPI 服务，封装了 `https://1.tongji.edu.cn` 的部分原始 API，用于 AstrBot 和 agent 工具调用。
+`tongji-api` 是一个同济大学 `1.tongji.edu.cn` 系统的 CLI + HTTP 工具包，用于 AstrBot、agent 和其他自动化工具。
+
+架构参考 [NeteaseCloudMusicApiEnhanced](https://github.com/neteasecloudmusicapienhanced/api-enhanced)：核心逻辑 (`core/`) 由 CLI 和 HTTP server 共享。
 
 目前项目仍处于第一阶段：
 
-- 仅对接原始 `1.tongji.edu.cn`，而非 `api.tongji.edu.cn`
 - 服务端按 XiaLing233 的流程程序化完成同济 IAM 登录
 - 通过环境变量提供 IAM 学号和密码；密码只从配置读取，不写入 session 文件
-- 如果触发邮箱 MFA，服务会发送验证码并等待用户手动提交
+- 如果触发邮箱 MFA，自动通过 IMAP（QQ 邮箱）读取验证码
 - 将 `JSESSIONID` 和 `sessionid` 持久化到本地 JSON 文件
-- 提供只读的会话、日历、通知和课程 API
-- 使用 Bearer token 保护管理端和工具端路由
+- 提供只读的会话、学生信息、通知、日历和课程 API
 - 无缓存、无限流、无写入 API
 
 ## 快速开始
@@ -23,27 +23,58 @@ Copy-Item .env.example .env
 编辑 `.env` 文件并设置：
 
 ```text
-TJ_API_TOKEN=...
-TJ_IAM_USERNAME=...
-TJ_IAM_PASSWORD=...
+TJ_IAM_USERNAME=学号
+TJ_IAM_PASSWORD=密码
+TJ_IMAP_EMAIL=邮箱
+TJ_IMAP_GRANTCODE=邮箱授权码
 ```
+
+## 使用方式
+
+### CLI 模式（推荐日常使用）
 
 ```powershell
-uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+# 登录
+uv run python -m tongji login
+
+# 查询
+uv run python -m tongji me              # 学生信息
+uv run python -m tongji notices         # 通知列表
+uv run python -m tongji notice <id>     # 通知详情
+uv run python -m tongji courses         # 课程查询
+uv run python -m tongji calendar list   # 校历
+
+# 查看所有命令
+uv run python -m tongji --help
 ```
 
-然后：
+### HTTP 服务模式（给 AstrBot 等调用）
 
-1. `POST /admin/login/start`
-2. 如果返回 `SUCCESS`，直接调用 `GET /tools/tongji/session/ping`
-3. 如果返回 `MFA_REQUIRED`，查看邮箱验证码
-4. 调用 `POST /admin/login/mfa`，请求体包含 `login_id` 和 `code`
-5. 登录成功后调用 `GET /tools/tongji/session/ping`
+```powershell
+uv run python -m tongji serve --port 8000
+```
 
-所有 `/admin/*` 和 `/tools/tongji/*` 路由均需携带：
+端点：
 
-```text
-Authorization: Bearer <TJ_API_TOKEN>
+```
+GET /healthz
+GET /students/me
+GET /students
+GET /notices
+GET /notices/{id}
+GET /courses
+GET /calendar/list
+GET /calendar/current-term
+GET /session/ping
+```
+
+无需 Bearer token——1 系统 session 即鉴权。
+
+### Docker（可选）
+
+```powershell
+docker build -t tongji-api .
+docker run -p 8000:8000 --env-file .env tongji-api
 ```
 
 ## 开发

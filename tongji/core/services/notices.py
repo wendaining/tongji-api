@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from app.raw_one.client import RawOneClient
+from tongji.core.client import RawOneClient
 
 
 async def list_notices(

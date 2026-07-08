@@ -17,9 +17,9 @@ import httpx
 from Crypto.Cipher import PKCS1_v1_5
 from Crypto.PublicKey import RSA
 
-from app.core.errors import AppError, UpstreamError
-from app.raw_one.imap import ImapConfig, wait_for_code, fetch_latest_code
-from app.raw_one.session_store import SessionStore
+from tongji.core.errors import AppError, UpstreamError
+from tongji.core.imap import ImapConfig, wait_for_code, fetch_latest_code
+from tongji.core.session_store import SessionStore
 
 # ---------------------------------------------------------------------------
 # Constants — original values from XiaLing233 / fetch-1-dot-tongji

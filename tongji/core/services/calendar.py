@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.raw_one.client import RawOneClient
+from tongji.core.client import RawOneClient
 
 
 async def list_calendars(client: RawOneClient) -> Any:

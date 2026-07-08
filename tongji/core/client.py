@@ -5,8 +5,8 @@ from typing import Any
 
 import httpx
 
-from app.core.errors import NoSessionError, SessionExpiredError, UpstreamError
-from app.raw_one.session_store import SessionStore
+from tongji.core.errors import NoSessionError, SessionExpiredError, UpstreamError
+from tongji.core.session_store import SessionStore
 
 SESSION_EXPIRED_MESSAGE = "sessionid is not exist."
 

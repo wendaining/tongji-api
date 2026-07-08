@@ -8,7 +8,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    api_token: str | None = None
     iam_username: str | None = None
     iam_password: str | None = None
     sessionid: str | None = None
@@ -35,10 +34,6 @@ class Settings(BaseSettings):
     @property
     def normalized_one_base_url(self) -> str:
         return self.one_base_url.rstrip("/")
-
-    def require_api_token(self) -> None:
-        if not self.api_token:
-            raise RuntimeError("TJ_API_TOKEN is required before starting one-dot-tongji-api")
 
     def require_iam_credentials(self) -> None:
         if not self.iam_username or not self.iam_password:
