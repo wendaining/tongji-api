@@ -1,135 +1,136 @@
 # Agent / AstrBot 工具调用规则
 
-本文档给 AstrBot、Agent 或其他自动化调用方使用。服务地址以下用
-`ONE_DOT_TONGJI_API_BASE` 表示。
+`tongji-api` 支持两种调用方式：**CLI**（推荐本地 Agent）和 **HTTP**（AstrBot 或远程调用）。
 
-## 通用规则
+## CLI 模式（推荐）
 
-- 所有 `/tools/tongji/*` 接口都只读。
-- 所有 `/tools/tongji/*` 接口都需要请求头：
+Agent 通过 subprocess 直接调用，无需启动服务：
 
-```text
-Authorization: Bearer <TJ_API_TOKEN>
+```bash
+python -m tongji <command> [options]
 ```
 
-- 不要调用 `/admin/*`，除非用户明确要求更新登录态。
-- 不要调用写接口、选课接口、管理接口、审批接口。
-- 不要直接把 raw JSON 倾倒给用户，应先整理成人话。
-- 如果返回 `SESSION_EXPIRED` 或 `NO_SESSION`，提示用户重新完成 1 系统登录。
+### 可用命令
+
+| 命令 | 说明 | 示例 |
+|------|------|------|
+| `me` | 当前学生信息 | `python -m tongji me` |
+| `notices` | 通知列表 | `python -m tongji notices --page-size 5` |
+| `notice <id>` | 通知详情 | `python -m tongji notice 2717` |
+| `courses` | 课程查询 | `python -m tongji courses --calendar 121` |
+| `calendar list` | 校历列表 | `python -m tongji calendar list` |
+| `calendar current-term` | 当前学期 | `python -m tongji calendar current-term` |
+| `ping` | 测试连接 | `python -m tongji ping` |
+| `login` | 登录 | `python -m tongji login` |
+
+输出为标准 JSON，字段名为中文。
+
+## HTTP 模式
+
+先启动服务：
+
+```bash
+python -m tongji serve --port 8000
+```
+
+所有端点均为 `GET`，无需鉴权 header：
+
+| 端点 | 说明 |
+|------|------|
+| `/students/me` | 当前学生信息 |
+| `/students` | 学生搜索（?studentId=&name=&faculty=） |
+| `/notices` | 通知列表（?page=&page_size=&keyword=） |
+| `/notices/{id}` | 通知详情 |
+| `/notices/{id}?translated=1` | 通知详情（中文字段名） |
+| `/courses` | 课程查询（?calendar=&page=&page_size=） |
+| `/calendar/list` | 校历列表 |
+| `/calendar/current-term` | 当前学期 |
+| `/calendar/{id}` | 校历详情 |
+| `/session/ping` | 测试 1 系统连接 |
+| `/healthz` | 健康检查 |
 
 ## 意图映射
 
-### 用户问“我是谁 / 当前登录账号”
+### 用户问"我是谁 / 当前登录账号"
 
-调用：
-
-```text
-GET /tools/tongji/me
+```bash
+python -m tongji me
+# or GET /students/me
 ```
 
-### 用户问“登录态还在吗 / 1 系统通不通”
+### 用户问"通知 / 公告 / 学校有什么消息"
 
-调用：
-
-```text
-GET /tools/tongji/session/ping
-```
-
-### 用户问“现在第几周 / 当前教学周”
-
-调用：
-
-```text
-GET /tools/tongji/calendar/current-week
-```
-
-### 用户问“当前学期 / 现在是什么学期”
-
-调用：
-
-```text
-GET /tools/tongji/calendar/current-term
-```
-
-### 用户问“校历 / 学期列表”
-
-调用：
-
-```text
-GET /tools/tongji/calendar/list
-```
-
-### 用户问“通知 / 公告 / 教务通知 / 学校有什么消息”
-
-优先调用：
-
-```text
-GET /tools/tongji/notices?page=1&page_size=20
+```bash
+python -m tongji notices --page-size 20
+# or GET /notices?page_size=20
 ```
 
 如果用户给了关键词：
 
-```text
-GET /tools/tongji/notices?page=1&page_size=20&keyword=关键词
+```bash
+python -m tongji notices --keyword 关键词
+# or GET /notices?keyword=xxx
 ```
 
 ### 用户追问某条通知详情
 
-调用：
-
-```text
-GET /tools/tongji/notices/{id}
+```bash
+python -m tongji notice <id>
+# or GET /notices/{id}
 ```
 
-### 用户问“有多少未读通知”
+### 用户问"现在第几周 / 当前学期 / 校历"
 
-调用：
-
-```text
-GET /tools/tongji/notices/unread-count
+```bash
+python -m tongji calendar current-term
+python -m tongji calendar list
+# or GET /calendar/list
 ```
 
-### 用户问“课程 / 排课 / 这周有什么课”
+### 用户问"课程 / 排课 / 这周有什么课"
 
-调用：
-
-```text
-GET /tools/tongji/courses
+```bash
+python -m tongji courses --calendar <id>
+# or GET /courses?calendar=<id>
 ```
-
-可选查询参数：
-
-```text
-calendar=
-campus=
-college=
-course=
-training_level=
-page=1
-page_size=200
-```
-
-如果用户没有提供 `calendar`，第一阶段可以不传；后续可先调用当前学期接口再推断。
 
 ## 登录态失效处理
 
-当接口返回：
+CLI 模式会直接报错退出。Agent 应执行：
+
+```bash
+python -m tongji login
+```
+
+HTTP 模式返回 409 错误。Agent 应提示用户重新登录。
+
+## 数据格式
+
+所有输出字段名为中文，值已翻译（利用上游 I18n 字段）：
 
 ```json
+// GET /students/me
 {
-  "ok": false,
-  "error": {
-    "code": "SESSION_EXPIRED"
-  }
+  "学号": "student-demo",
+  "姓名": "示例用户",
+  "性别": "男",
+  "校区": "嘉定校区",
+  "学院": "计算机科学与技术学院"
+}
+
+// GET /notices?translated=1&page_size=2
+{
+  "total": 2076,
+  "items": [
+    {"标题": "...", "发布人": "...", "发布时间": "..."},
+    ...
+  ]
 }
 ```
 
-Agent 应回复类似：
+## 安全注意事项
 
-```text
-1 系统登录态失效了，需要重新登录。请让管理员调用 /admin/login/start
-发起服务端 IAM 登录；如果需要邮箱验证码，再调用 /admin/login/mfa 完成验证。
-```
-
-不要向普通聊天用户索要 IAM 密码。邮箱验证码只应在管理员明确执行登录流程时，
-通过受保护的 `/admin/login/mfa` 接口提交。
+- IAM 密码、验证码、sessionid、Cookie 为机密信息。
+- 不要向普通聊天用户索要 IAM 密码。
+- 本服务只提供只读查询，不包含写 API、选课 API、管理 API。
+- 默认部署为本地或私有网络。
