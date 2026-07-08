@@ -17,6 +17,78 @@
 - 登录成功后持久化 1 系统的 `JSESSIONID` 和 `sessionid`。
 - 第一阶段为只读：仅限会话、通知、日历和课程安排的查询。
 
+## 接口调用规范（XiaLing233 参考实现）
+
+本项目代码严格对齐 XiaLing233 / fetch-1-dot-tongji 的调用方式。
+参考仓库：https://github.com/XiaLing233/fetch-1-dot-tongji
+
+### 登录流程
+
+登录模块完整复刻 `crawler/auth/loginout.py` 的 SSO 状态机流程：
+
+1. GET `https://1.tongji.edu.cn/api/ssoservice/system/loginIn`（自动跟随重定向到 IAM 登录页）
+2. 从页面提取 `authnLcKey`、RSA 脚本地址、`spAuthChainCode`
+3. RSA 加密密码（PKCS1_v1_5 + Base64）
+4. POST `ActionAuthChain`（form-encoded）提交凭据
+5. 如需 MFA：POST `sendCheckCode.do` 发送邮箱验证码 → 用户手动提交
+6. POST `AuthnEngine` 换取 Location
+7. 跟随重定向到 `ssologin`，解析 token/uid/ts
+8. POST `session/login` 换取 `sessionid`
+
+任何时候修改登录相关代码，必须先对照 XiaLing233 的 `loginout.py` 和 `encrypt.py`。
+
+### HTTP 客户端统一规范
+
+所有对 `1.tongji.edu.cn` 的请求必须通过 `RawOneClient` 发出，并遵守以下规范：
+
+**请求头**（全部使用浏览器风格，不暴露自建服务特征）：
+```text
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36
+Accept: application/json, text/plain, */*
+Accept-Language: zh-CN,zh;q=0.9
+Accept-Encoding: gzip, deflate, br, zstd
+X-Token: <sessionid>
+Cookie: JSESSIONID=<jsessionid>; sessionid=<sessionid>
+```
+
+**POST 请求体**：全部使用 `application/x-www-form-urlencoded`（form-encoded），不使用 JSON。这与 XiaLing233 的 `data=dict` + `urlencode()` 一致。
+
+```python
+# ✅ 正确：form-encoded
+client.request("POST", "/api/...", data={"pageNum_": 1, "pageSize_": 20})
+
+# ❌ 错误：JSON body（不要用）
+client.request("POST", "/api/...", json_body={"pageNum_": 1, "pageSize_": 20})
+```
+
+嵌套字段用 Spring MVC 点号扁平化：
+```python
+{"condition.trainingLevel": "", "condition.campus": ""}
+```
+
+**GET 请求**：查询参数使用 `params=` 传递，必要时附加 `t` 缓存时间戳（毫秒级 Unix 时间）：
+```python
+client.request("GET", "/api/.../findById", params={"id": id, "t": str(int(time.time() * 1000))})
+```
+
+### Cookie 与 session 管理
+
+- `SessionStore` 持久化 `JSESSIONID` 和 `sessionid`，从 cookie jar 自动提取
+- `get_cookie_header()` 构造完整的 Cookie 请求头
+- 业务 API 调用自动注入 `X-Token` 和 `Cookie`
+- Session 失效检测：状态码 401/403 或响应包含 `sessionid is not exist`
+
+### 不在日志中打印的敏感字段
+
+`sessionid`、`JSESSIONID`、`Cookie`、`X-Token`、`Authorization`、`token`、`j_password`、`sms_checkcode`、IAM 密码。
+
+### 未实现 / 后续阶段
+
+- IMAP 自动收验证码（XiaLing233 的 `imap.py`）
+- AES 文件路径加密（`encrypt.py` 的 `getAESKeyAndIV` / `encryptFilePath`）
+- 退出登录（`loginout.py` 的 `logout`）
+- `currentWeek` 接口（XiaLing233 未使用，上游参数绑定方式待排查）
+
 ## 预期流程
 
 ```text
