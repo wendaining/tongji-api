@@ -541,13 +541,12 @@ def _extract_sp_auth_chain_code(html: str) -> str:
 
 
 def _extract_rsa_public_key(js_text: str) -> str:
-    patterns = [
-        r'encrypt\.setPublicKey\(["\']([^"\']+)["\']\)',
-        r'setPublicKey\(["\']([^"\']+)["\']\)',
-    ]
-    key_body = _first_regex_group(patterns, js_text)
-    if not key_body:
+    pattern = r'setPublicKey\(["\']([^"\']+)["\']\)'
+    matches = re.findall(pattern, js_text)
+    if not matches:
         raise UpstreamError("无法从 IAM JS 中解析 RSA 公钥。")
+    # crypt.js 可能多次调用 setPublicKey，最后一次调用才实际生效（JSEncrypt 行为）
+    key_body = matches[-1]
     return f"-----BEGIN PUBLIC KEY-----\n{key_body}\n-----END PUBLIC KEY-----"
 
 
