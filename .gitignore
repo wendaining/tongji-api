@@ -1,0 +1,349 @@
+# ---------------------------------------------------------------------------
+# one-dot-tongji-api local secrets and runtime state
+# ---------------------------------------------------------------------------
+
+# Environment files may contain TJ_API_TOKEN, TJ_SESSIONID, proxy settings, or
+# future IAM credentials. Keep examples committed as .env.example.
+.env
+.env.*
+!.env.example
+!.env.*.example
+.envrc
+.envrc.*
+!.envrc.example
+.direnv/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.local/
+
+# Persisted 1.tongji.edu.cn login state and local runtime data.
+data/*
+!data/.gitkeep
+*.session
+*.session.json
+session.json
+cookies.json
+cookiejar
+cookiejar.*
+*.cookie
+*.cookies
+
+# Local secrets and credentials.
+secrets/
+secret/
+credentials/
+private/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.kdbx
+*.asc
+*.gpg
+*.age
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+known_hosts
+
+# Logs can accidentally include request metadata. The application should still
+# redact tokens, but logs do not belong in git.
+logs/
+log/
+*.log
+*.log.*
+*.out
+*.err
+*.pid
+*.pid.lock
+
+# Local scratch files for manual raw-one experiments.
+scratch/
+tmp/
+temp/
+.tmp/
+.temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions and compiled artifacts.
+*.so
+*.pyd
+*.dll
+*.dylib
+
+# Packaging and build output.
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs.
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments.
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.virtualenv/
+
+# Python dependency managers and local tool caches.
+.pip-cache/
+.pip/
+.python-version.local
+.pdm-python
+.pdm-build/
+.pixi/
+__pypackages__/
+pip-wheel-metadata/
+
+# Keep lock files trackable for reproducible app deploys:
+#   uv.lock
+#   poetry.lock
+#   pdm.lock
+#   requirements*.txt
+
+# Unit test, coverage, and quality tool output.
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+test-results/
+reports/
+junit.xml
+pytestdebug.log
+.hypothesis/
+
+# Static analysis and type-checking caches.
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# Profiling output.
+*.prof
+*.pstats
+profile/
+profiling/
+
+# Jupyter / IPython.
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# PyInstaller.
+*.manifest
+*.spec
+
+# Celery / multiprocessing / local queues.
+celerybeat-schedule
+celerybeat.pid
+*.db-shm
+*.db-wal
+
+# SQLite and other local database files. Keep migrations and schemas committed.
+*.sqlite
+*.sqlite3
+*.db
+
+# ---------------------------------------------------------------------------
+# FastAPI / Uvicorn / local server runtime
+# ---------------------------------------------------------------------------
+
+.uvicorn.reload
+uvicorn.pid
+gunicorn.pid
+gunicorn.conf.local.py
+
+# Local ASGI server sockets.
+*.sock
+
+# ---------------------------------------------------------------------------
+# Documentation build output
+# ---------------------------------------------------------------------------
+
+site/
+.mkdocs_cache/
+docs/_build/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+
+# ---------------------------------------------------------------------------
+# Node.js / frontend tooling caches
+# ---------------------------------------------------------------------------
+
+# Not part of the first-stage API service, but useful if examples, docs, or
+# an AstrBot plugin later include JS tooling. Keep package lock files trackable.
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.yarn/
+.pnpm-store/
+.turbo/
+.next/
+.nuxt/
+.svelte-kit/
+.vite/
+vite.config.*.timestamp-*
+vite.config.*.mjs-*
+
+# Keep lock files trackable:
+#   package-lock.json
+#   npm-shrinkwrap.json
+#   yarn.lock
+#   pnpm-lock.yaml
+
+# ---------------------------------------------------------------------------
+# OS-generated files
+# ---------------------------------------------------------------------------
+
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Windows shortcut and metadata files.
+*.lnk
+*.url
+
+# Linux desktop / trash.
+*~
+.directory
+.Trash-*/
+
+# ---------------------------------------------------------------------------
+# Editors and IDEs
+# ---------------------------------------------------------------------------
+
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+!.vscode/tasks.example.json
+!.vscode/launch.example.json
+*.code-workspace
+
+# Vim / Neovim.
+*.swp
+*.swo
+*.swn
+.netrwhist
+
+# Emacs.
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list/
+tramp
+.\#*
+
+# Sublime Text.
+*.sublime-workspace
+*.sublime-project
+
+# JetBrains local HTTP client files.
+.idea/httpRequests/
+
+# ---------------------------------------------------------------------------
+# Local automation and deployment artifacts
+# ---------------------------------------------------------------------------
+
+.docker/
+docker-compose.override.yml
+compose.override.yml
+*.local.yml
+*.local.yaml
+.wrangler/
+.serverless/
+.sst/
+
+# Deployment bundles or local release archives.
+release/
+releases/
+artifacts/
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.rar
+
+# Service manager local overrides.
+*.service.local
+*.timer.local
+supervisord.local.conf
+
+# ---------------------------------------------------------------------------
+# Misc generated files
+# ---------------------------------------------------------------------------
+
+*.py,cover
+*.cover
+*.mo
+*.pot
+*.coverage.*
+*.lcov
+*.cache
+.cache/
+
+# Generated API schemas may be committed intentionally. Ignore only local
+# throwaway exports.
+openapi.local.json
+openapi.local.yaml
+schema.local.json
+schema.local.yaml
