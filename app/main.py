@@ -10,6 +10,7 @@ from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
 from app.core.responses import ok
 from app.raw_one.client import RawOneClient
+from app.raw_one.imap import ImapConfig
 from app.raw_one.login import ProgrammaticLoginManager
 from app.raw_one.session_store import SessionStore
 from app.tools import routes_admin, routes_calendar, routes_courses, routes_notices, routes_session
@@ -31,12 +32,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         timeout_seconds=settings.request_timeout_seconds,
         session_store=session_store,
     )
+    imap_config = None
+    if settings.imap_email and settings.imap_grantcode:
+        imap_config = ImapConfig(
+            email=settings.imap_email,
+            grant_code=settings.imap_grantcode,
+            server=settings.imap_server,
+            port=settings.imap_port,
+        )
+
     login_manager = ProgrammaticLoginManager(
         username=settings.iam_username,
         password=settings.iam_password,
         one_base_url=settings.normalized_one_base_url,
         timeout_seconds=settings.request_timeout_seconds,
         session_store=session_store,
+        imap_config=imap_config,
         pending_ttl_seconds=settings.login_expires_seconds,
     )
     app.state.session_store = session_store

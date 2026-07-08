@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import re
@@ -17,6 +18,7 @@ from Crypto.Cipher import PKCS1_v1_5
 from Crypto.PublicKey import RSA
 
 from app.core.errors import AppError, UpstreamError
+from app.raw_one.imap import ImapConfig, wait_for_code, fetch_latest_code
 from app.raw_one.session_store import SessionStore
 
 # ---------------------------------------------------------------------------
@@ -309,12 +311,14 @@ class ProgrammaticLoginFlow:
         one_base_url: str,
         timeout_seconds: float,
         session_store: SessionStore,
+        imap_config: ImapConfig | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self.username = username
         self.password = password
         self.one_base_url = one_base_url.rstrip("/")
         self.session_store = session_store
+        self.imap_config = imap_config
         # httpx cookie jar persists across the whole flow just like
         # requests.Session does in the reference implementation.
         self.client = client or httpx.AsyncClient(
@@ -346,6 +350,15 @@ class ProgrammaticLoginFlow:
         if _is_mfa_required(auth_data):
             self.is_mfa = True
             await self._request_email_code()
+
+            # Ref: XiaLing233 loginout.py — _submit_enhance_code polls IMAP
+            # after a 15-second wait.  We try auto-fetch first; fall back to
+            # manual input if IMAP is not configured or the code hasn't arrived.
+            if self.imap_config:
+                code = await self._wait_for_mfa_code()
+                if code:
+                    return await self._finish_mfa_login(code)
+
             return LoginStartResult(
                 status=LoginResultStatus.MFA_REQUIRED,
                 mfa_channel="email",
@@ -490,6 +503,51 @@ class ProgrammaticLoginFlow:
                 "同济 IAM 邮箱验证码发送失败。",
                 details={"upstream_status": response.status_code},
             )
+
+    async def _wait_for_mfa_code(self) -> str | None:
+        """Poll IMAP for the MFA verification code (runs in thread pool)."""
+        if not self.imap_config:
+            return None
+        return await asyncio.to_thread(
+            wait_for_code,
+            self.imap_config,
+            timeout_seconds=20,
+            poll_interval_seconds=5,
+        )
+
+    async def _finish_mfa_login(self, code: str) -> LoginStartResult:
+        """Auto-submit the MFA code and complete the login."""
+        self.auth_payload = {
+            "j_username": self.username,
+            "type": "email",
+            "sms_checkcode": code,
+            "popViewException": "Pop2",
+            "j_checkcode": "请输入验证码",
+            "op": "login",
+            "spAuthChainCode": self.sp_auth_chain_code,
+        }
+
+        data = urlencode(self.auth_payload)
+        response = await self.client.post(
+            self.chain_url,
+            content=data,
+            headers=self._form_headers(),
+            follow_redirects=False,
+        )
+        auth_data = _parse_auth_response(response.text)
+        login_failed = _login_failed_value(auth_data)
+        if login_failed not in {"", "false"}:
+            raise AppError(
+                code="IAM_MFA_FAILED",
+                message=_extract_authn_error_tip(auth_data) or "同济 IAM 验证码未通过。",
+                status_code=401,
+            )
+
+        await self._finish_login()
+        return LoginStartResult(
+            status=LoginResultStatus.SUCCESS,
+            session_status=self.session_store.public_status(),
+        )
 
     # ------------------------------------------------------------------
     # Step: AUTHN_ENGINE + SESSION_LOGIN — ref _authn_engine + _session_login
@@ -642,6 +700,7 @@ class ProgrammaticLoginManager:
         one_base_url: str,
         timeout_seconds: float,
         session_store: SessionStore,
+        imap_config: ImapConfig | None = None,
         pending_ttl_seconds: int = 600,
     ) -> None:
         self.username = username
@@ -649,6 +708,7 @@ class ProgrammaticLoginManager:
         self.one_base_url = one_base_url
         self.timeout_seconds = timeout_seconds
         self.session_store = session_store
+        self.imap_config = imap_config
         self.pending_ttl_seconds = pending_ttl_seconds
         self._pending: dict[str, tuple[ProgrammaticLoginFlow, datetime]] = {}
 
@@ -661,6 +721,7 @@ class ProgrammaticLoginManager:
             one_base_url=self.one_base_url,
             timeout_seconds=self.timeout_seconds,
             session_store=self.session_store,
+            imap_config=self.imap_config,
         )
         try:
             result = await flow.start()

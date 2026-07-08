@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     login_expires_seconds: int = Field(default=600, gt=0)
     log_level: str = "INFO"
 
+    # IMAP config for MFA auto-fetch (XiaLing233 alignment)
+    imap_email: str | None = None
+    imap_grantcode: str | None = None
+    imap_server: str = "imap.qq.com"
+    imap_port: int = 993
+
     model_config = SettingsConfigDict(
         env_prefix="TJ_",
         env_file=".env",
