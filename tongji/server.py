@@ -13,6 +13,7 @@ from fastapi import FastAPI, Query
 
 from tongji.core.config import get_settings
 from tongji.core.client import RawOneClient
+from tongji.core.dict import translate_notice
 from tongji.core.errors import register_error_handlers
 from tongji.core.logging import configure_logging
 from tongji.core.session_store import SessionStore
@@ -98,14 +99,25 @@ def create_app() -> FastAPI:
         page: int = Query(default=1, ge=1),
         page_size: int = Query(default=10, ge=1, le=100),
         keyword: str | None = Query(default=None),
+        translated: bool = Query(default=False),
     ):
-        return await notices_svc.list_notices(
+        result = await notices_svc.list_notices(
             _get_client(), page=page, page_size=page_size, keyword=keyword,
         )
+        if translated:
+            data = result.get("data") or {}
+            data["list"] = [translate_notice(n) for n in (data.get("list") or [])]
+        return result
 
     @app.get("/notices/{notice_id}", tags=["notices"])
-    async def notice_detail(notice_id: str):
-        return await notices_svc.notice_detail(_get_client(), notice_id)
+    async def notice_detail(
+        notice_id: str,
+        translated: bool = Query(default=False),
+    ):
+        result = await notices_svc.notice_detail(_get_client(), notice_id)
+        if translated:
+            return translate_notice(result.get("data") or result)
+        return result
 
     # ------------------------------------------------------------------
     # Courses

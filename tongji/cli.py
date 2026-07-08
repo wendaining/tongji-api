@@ -140,19 +140,27 @@ async def cmd_me() -> None:
 
 
 async def cmd_notices(page: int, page_size: int, keyword: str | None) -> None:
+    from tongji.core.dict import translate_notice
+
     client = _load_client()
     try:
         result = await notices_svc.list_notices(client, page=page, page_size=page_size, keyword=keyword)
-        _print(result)
+        data = (result.get("data") or {})
+        raw_list = data.get("list") or []
+        translated = [translate_notice(n) for n in raw_list]
+        _print({"total": data.get("total_"), "page": data.get("pageNum_"), "items": translated})
     finally:
         await client.aclose()
 
 
 async def cmd_notice_detail(notice_id: str) -> None:
+    from tongji.core.dict import translate_notice
+
     client = _load_client()
     try:
         result = await notices_svc.notice_detail(client, notice_id)
-        _print(result)
+        raw = (result.get("data") or result)
+        _print(translate_notice(raw))
     finally:
         await client.aclose()
 
