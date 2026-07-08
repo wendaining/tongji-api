@@ -20,6 +20,7 @@ python -m tongji <command> [options]
 | `courses` | 课程查询 | `python -m tongji courses --calendar 121` |
 | `calendar list` | 校历列表 | `python -m tongji calendar list` |
 | `calendar current-term` | 当前学期 | `python -m tongji calendar current-term` |
+| `major-timetable` | 专业课表查询 | `python -m tongji major-timetable --code 42014 --grade 2024 --calendar 122` |
 | `exams` | 考试安排查询 | `python -m tongji exams` |
 | `tutor-meetings` | 新生导师见面会 | `python -m tongji tutor-meetings` |
 | `scores` | 课程成绩/绩点 | `python -m tongji scores` |
@@ -52,6 +53,7 @@ python -m tongji serve --port 8000
 | `/exams/info` | 考试安排基本信息（默认考试类型、学期列表）|
 | `/exams/dictionary` | 字典查询（?keys=X_XQ&authId=9102） |
 | `/tutor-meetings` | 新生导师见面会（?searchText=&page=&page_size=）|
+| `/timetable/major` | 专业课表（?code=&grade=&calendarId=&dirCode=&isMajor=）|
 | `/session/ping` | 测试 1 系统连接 |
 | `/healthz` | 健康检查 |
 
@@ -112,6 +114,13 @@ python -m tongji exams
 ```bash
 python -m tongji tutor-meetings
 # or GET /tutor-meetings
+```
+
+### 用户问"专业课 / 专业课程表 / 某个专业的课程"
+
+```bash
+python -m tongji major-timetable --code 42014 --grade 2024 --calendar 122
+# or GET /timetable/major?code=42014&grade=2024&calendarId=122
 ```
 
 ## 登录态失效处理

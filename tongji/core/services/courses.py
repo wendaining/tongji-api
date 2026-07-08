@@ -38,3 +38,44 @@ async def query_courses(
         params={"profile": ""},
         data=payload,
     )
+
+
+async def query_teaching_tasks(
+    client: RawOneClient,
+    *,
+    calendar: int,
+    keyword: str = "",
+    campus: str = "",
+    college: str = "",
+    course: str = "",
+    training_level: str = "",
+    ids: list[int] | None = None,
+    is_chinese_teaching: bool | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> Any:
+    """Query teaching tasks with full filter conditions (JSON body).
+
+    Supports keyword search, campus filter, and other condition fields.
+    Matches the browser Network request format.
+
+    Ref: POST /api/arrangementservice/manualArrange/page?profile
+    """
+    condition: dict[str, Any] = {
+        "trainingLevel": training_level,
+        "campus": campus,
+        "calendar": calendar,
+        "college": college,
+        "course": course,
+        "ids": ids or [],
+        "isChineseTeaching": is_chinese_teaching,
+    }
+    if keyword:
+        condition["keyword"] = keyword
+
+    return await client.request(
+        "POST",
+        "/api/arrangementservice/manualArrange/page",
+        params={"profile": ""},
+        json_body={"condition": condition, "pageNum_": page, "pageSize_": page_size},
+    )

@@ -19,9 +19,12 @@ from tongji.core.services import (
     calendar as calendar_svc,
     courses as courses_svc,
     elections as elections_svc,
+    exams as exams_svc,
     notices as notices_svc,
     session as session_svc,
     students as student_svc,
+    teaching_progress as tp_svc,
+    timetable as timetable_svc,
 )
 
 
@@ -238,6 +241,89 @@ async def cmd_timetable(calendar: int | None) -> None:
         await client.aclose()
 
 
+async def cmd_major_timetable(code: str, grade: str, calendar_id: int) -> None:
+    """Query major (专业) timetable."""
+    from tongji.core.dict import translate_major_timetable
+    from tongji.core.services import elections as elections_svc
+    from tongji.core.services import timetable as tt_svc
+
+    client = _load_client()
+    try:
+        await exams_svc.current_auth_id(client, auth_id=9093)
+        await session_svc.set_language(client)
+        result = await tt_svc.major_timetable(
+            client, code=code, grade=grade, calendar_id=calendar_id,
+        )
+        raw_list = (result.get('data') or [])
+        translated = [translate_major_timetable(r) for r in raw_list]
+        _print({"calendar": calendar_id, "count": len(translated), "items": translated})
+    finally:
+        await client.aclose()
+
+
+async def cmd_exams() -> None:
+    """Query exam schedule (undergraduate)."""
+    client = _load_client()
+    try:
+        await exams_svc.current_auth_id(client, auth_id=9102)
+        exam_type = await exams_svc.get_default_exam_type(client)
+        semesters = await exams_svc.query_dictionary(client, keys=["X_XQ"], auth_id=9102)
+        _print({
+            "default_exam_type": exam_type.get("data") or exam_type,
+            "semesters": semesters.get("data") or semesters,
+        })
+    finally:
+        await client.aclose()
+
+
+async def cmd_tutor_meetings(search_text: str, page: int, page_size: int) -> None:
+    """Query freshman tutor meetings."""
+    from tongji.core.services import tutor_meetings as tutor_svc
+
+    client = _load_client()
+    try:
+        await exams_svc.current_auth_id(client, auth_id=13087)
+        await session_svc.set_language(client)
+        result = await tutor_svc.query_by_page(
+            client, search_type="2", search_text=search_text, page=page, page_size=page_size,
+        )
+        _print(result.get("data") or result)
+    finally:
+        await client.aclose()
+
+
+async def cmd_teaching_progress(calendar_id: int | None, keyword: str, page: int, page_size: int) -> None:
+    """Query teaching progress list."""
+    from tongji.core.dict import translate_teaching_progress
+
+    client = _load_client()
+    try:
+        result = await tp_svc.progress_query(
+            client, calendar_id=calendar_id, keyword=keyword, page=page, page_size=page_size,
+        )
+        data = result.get("data") or {}
+        raw_list = data.get("list") or []
+        translated = [translate_teaching_progress(r) for r in raw_list]
+        _print({"total": data.get("total_"), "page": data.get("pageNum_"), "items": translated})
+    finally:
+        await client.aclose()
+
+
+async def cmd_progress_detail(progress_id: str) -> None:
+    """Query teaching progress detail."""
+    from tongji.core.dict import translate_progress_detail
+
+    client = _load_client()
+    try:
+        result = await tp_svc.get_progress_detail(client, id=progress_id)
+        data = result.get("data") or {}
+        raw_list = data.get("list") or []
+        translated = [translate_progress_detail(r) for r in raw_list]
+        _print({"total": data.get("total_"), "page": data.get("pageNum_"), "items": translated})
+    finally:
+        await client.aclose()
+
+
 async def cmd_scores() -> None:
     from tongji.core.dict import translate_grade_term, translate_grade_course
     from tongji.core.services import grades as grades_svc
@@ -383,6 +469,32 @@ def main():
     tt_p = subs.add_parser("timetable", help="Student course timetable")
     tt_p.add_argument("--calendar", type=int, default=None)
 
+    # major-timetable
+    mt_p = subs.add_parser("major-timetable", help="Major (专业) course timetable")
+    mt_p.add_argument("--code", required=True, help="Major code, e.g. 42014")
+    mt_p.add_argument("--grade", required=True, help="Grade year, e.g. 2024")
+    mt_p.add_argument("--calendar", type=int, required=True, help="Calendar ID, e.g. 122")
+
+    # exams
+    subs.add_parser("exams", help="Exam schedule (undergraduate)")
+
+    # tutor-meetings
+    tm_p = subs.add_parser("tutor-meetings", help="Freshman tutor meetings")
+    tm_p.add_argument("--search-text", default="")
+    tm_p.add_argument("--page", type=int, default=1)
+    tm_p.add_argument("--page-size", type=int, default=20)
+
+    # teaching-progress
+    tp_p = subs.add_parser("teaching-progress", help="Query teaching progress list")
+    tp_p.add_argument("--calendar", type=int, default=None)
+    tp_p.add_argument("--keyword", default="")
+    tp_p.add_argument("--page", type=int, default=1)
+    tp_p.add_argument("--page-size", type=int, default=20)
+
+    # progress-detail
+    pd_p = subs.add_parser("progress-detail", help="Query teaching progress detail")
+    pd_p.add_argument("id", help="Progress ID")
+
     # ping
     subs.add_parser("ping", help="Test 1.tongji.edu.cn session")
 
@@ -431,6 +543,16 @@ def main():
         asyncio.run(cmd_plan())
     elif args.command == "timetable":
         asyncio.run(cmd_timetable(args.calendar))
+    elif args.command == "major-timetable":
+        asyncio.run(cmd_major_timetable(args.code, args.grade, args.calendar))
+    elif args.command == "exams":
+        asyncio.run(cmd_exams())
+    elif args.command == "tutor-meetings":
+        asyncio.run(cmd_tutor_meetings(args.search_text, args.page, args.page_size))
+    elif args.command == "teaching-progress":
+        asyncio.run(cmd_teaching_progress(args.calendar, args.keyword, args.page, args.page_size))
+    elif args.command == "progress-detail":
+        asyncio.run(cmd_progress_detail(args.id))
     elif args.command == "ping":
         asyncio.run(cmd_ping())
     else:

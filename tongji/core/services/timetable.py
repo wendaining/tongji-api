@@ -27,3 +27,32 @@ async def student_timetable(
             "campus": campus,
         },
     )
+
+
+async def major_timetable(
+    client: RawOneClient,
+    *,
+    code: str,
+    grade: str,
+    calendar_id: int,
+    dir_code: str = "",
+    is_major: bool = False,
+) -> Any:
+    """Fetch major (专业) timetable by major code, grade and calendar.
+
+    Ref: GET /api/arrangementservice/timetable/major
+    """
+    import time
+
+    return await client.request(
+        "GET",
+        "/api/arrangementservice/timetable/major",
+        params={
+            "code": code,
+            "grade": grade,
+            "calendarId": str(calendar_id),
+            "dirCode": dir_code,
+            "isMajor": str(is_major).lower(),
+            "_t": str(int(time.time() * 1000)),
+        },
+    )

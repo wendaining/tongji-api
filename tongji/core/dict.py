@@ -154,6 +154,34 @@ def translate_timetable(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Major Timetable (专业课表)
+# ---------------------------------------------------------------------------
+
+MAJOR_TIMETABLE_FIELDS = [
+    ("courseName", "课程名称"),
+    ("courseCode", "课程代码"),
+    ("teacherName", "教师"),
+    ("classroomName", "教室"),
+    ("weekDay", "星期"),
+    ("startSection", "起始节次"),
+    ("endSection", "结束节次"),
+    ("weeks", "周次"),
+    ("campusName", "校区"),
+    ("credit", "学分"),
+    ("classRoom", "上课教室"),
+    ("profession", "专业"),
+    ("professionName", "专业名称"),
+    ("dirName", "方向名称"),
+    ("examType", "考核方式"),
+]
+
+
+def translate_major_timetable(raw: dict[str, Any]) -> dict[str, Any]:
+    """Translate a major timetable entry."""
+    return {label: _pick(raw, code) for code, label in MAJOR_TIMETABLE_FIELDS}
+
+
+# ---------------------------------------------------------------------------
 # Culture plan (培养方案)
 # ---------------------------------------------------------------------------
 
@@ -249,6 +277,130 @@ def translate_mutual_apply(raw: dict[str, Any]) -> dict[str, Any]:
     if "isElective" in raw:
         result["选修"] = "选修" if raw.get("isElective") == 1 else "必修"
     return result
+
+
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Teaching progress / 教学进度
+# ---------------------------------------------------------------------------
+
+TEACHING_PROGRESS_FIELDS = [
+    ("id", "ID"),
+    ("courseName", "课程名称"),
+    ("courseCode", "课程代码"),
+    ("teacherName", "任课教师"),
+    ("deptName", "开课院系"),
+    ("trainingLevel", "培养层次"),
+    ("nature", "课程性质"),
+    ("label", "课程标签"),
+    ("campus", "校区"),
+    ("classroom", "上课地点"),
+    ("weekNum", "教学周"),
+    ("dayOfWeek", "星期"),
+    ("section", "节次"),
+    ("credit", "学分"),
+    ("totalHour", "总学时"),
+    ("teachingHour", "授课学时"),
+    ("experimentHour", "实验学时"),
+    ("examType", "考核方式"),
+    ("studentCount", "选课人数"),
+    ("status", "状态"),
+    ("progressStatus", "进度状态"),
+]
+
+
+def translate_teaching_progress(raw):
+    """Translate a teaching progress list entry."""
+    result = {}
+    for code, label in TEACHING_PROGRESS_FIELDS:
+        result[label] = _pick(raw, code)
+    return result
+
+
+PROGRESS_DETAIL_FIELDS = [
+    ("id", "ID"),
+    ("teachWeek", "教学周"),
+    ("lessonPlan", "授课章节"),
+    ("teachContent", "教学内容"),
+    ("teachingMethod", "教学方式"),
+    ("homeWork", "课后作业"),
+    ("classHour", "课时"),
+    ("remark", "备注"),
+    ("status", "状态"),
+    ("auditStatus", "审核状态"),
+    ("submitName", "提交人"),
+    ("submitDate", "提交时间"),
+]
+
+
+def translate_progress_detail(raw):
+    """Translate a progress detail (page content) entry."""
+    result = {}
+    for code, label in PROGRESS_DETAIL_FIELDS:
+        result[label] = _pick(raw, code)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Dictionary item (字典条目)
+# ---------------------------------------------------------------------------
+
+DICTIONARY_ITEM_FIELDS = [
+    ("code", "编码"),
+    ("name", "名称"),
+    ("fullName", "全称"),
+    ("sort", "排序"),
+]
+
+
+def translate_dictionary_item(raw: dict[str, Any]) -> dict[str, Any]:
+    """Translate a dictionary item (e.g. semester, campus, exam type)."""
+    return {label: _pick(raw, code) for code, label in DICTIONARY_ITEM_FIELDS}
+
+
+# ---------------------------------------------------------------------------
+# Exam arrange (考试安排)
+# ---------------------------------------------------------------------------
+
+EXAM_ARRANGE_FIELDS = [
+    ("courseName", "课程名称"),
+    ("courseCode", "课程代码"),
+    ("examDate", "考试日期"),
+    ("examTime", "考试时间"),
+    ("examLocation", "考试地点"),
+    ("seatNo", "座位号"),
+    ("campusName", "校区"),
+    ("examType", "考试类型"),
+    ("credit", "学分"),
+    ("teacherName", "任课教师"),
+]
+
+
+def translate_exam_arrange(raw: dict[str, Any]) -> dict[str, Any]:
+    """Translate a single exam arrangement entry."""
+    return {label: _pick(raw, code) for code, label in EXAM_ARRANGE_FIELDS}
+
+
+# ---------------------------------------------------------------------------
+# Tutor meeting / 新生导师见面会
+# ---------------------------------------------------------------------------
+
+TUTOR_MEETING_FIELDS = [
+    ("id", "ID"),
+    ("meetingName", "见面会名称"),
+    ("meetingTime", "见面会时间"),
+    ("meetingLocation", "见面会地点"),
+    ("tutorName", "导师姓名"),
+    ("tutorTitle", "导师职称"),
+    ("collegeName", "学院"),
+    ("status", "状态"),
+    ("remark", "备注"),
+]
+
+
+def translate_tutor_meeting(raw: dict[str, Any]) -> dict[str, Any]:
+    """Translate a single tutor meeting entry."""
+    return {label: _pick(raw, code) for code, label in TUTOR_MEETING_FIELDS}
 
 
 # ---------------------------------------------------------------------------

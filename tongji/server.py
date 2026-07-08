@@ -13,7 +13,7 @@ from fastapi import FastAPI, Query
 
 from tongji.core.config import get_settings
 from tongji.core.client import RawOneClient
-from tongji.core.dict import translate_calendar, translate_course, translate_credit_stats, translate_grade_course, translate_grade_term, translate_mutual_apply, translate_notice, translate_plan_course, translate_timetable
+from tongji.core.dict import translate_calendar, translate_course, translate_credit_stats, translate_dictionary_item, translate_exam_arrange, translate_grade_course, translate_grade_term, translate_major_timetable, translate_mutual_apply, translate_notice, translate_plan_course, translate_progress_detail, translate_teaching_progress, translate_timetable, translate_tutor_meeting
 from tongji.core.errors import register_error_handlers
 from tongji.core.logging import configure_logging
 from tongji.core.session_store import SessionStore
@@ -21,9 +21,12 @@ from tongji.core.services import (
     calendar as calendar_svc,
     courses as courses_svc,
     elections as elections_svc,
+    exams as exams_svc,
     notices as notices_svc,
     session as session_svc,
     students as student_svc,
+    teaching_progress as tp_svc,
+    tutor_meetings as tutor_svc,
     culture as culture_svc,
     grades as grades_svc,
     timetable as timetable_svc,
@@ -240,6 +243,116 @@ def create_app() -> FastAPI:
                 "挂科数": data.get("failingCourseCount"),
                 "学期": terms,
             }
+        return result
+
+    # ------------------------------------------------------------------
+    # Exams
+    # ------------------------------------------------------------------
+    @app.get("/exams/info", tags=["exams"])
+    async def exams_info():
+        client = _get_client()
+        await exams_svc.current_auth_id(client, auth_id=9102)
+        exam_type = await exams_svc.get_default_exam_type(client)
+        semesters = await exams_svc.query_dictionary(client, keys=["X_XQ"], auth_id=9102)
+        return {
+            "default_exam_type": exam_type.get("data") or exam_type,
+            "semesters": semesters.get("data") or semesters,
+        }
+
+    @app.get("/exams/dictionary", tags=["exams"])
+    async def exams_dictionary(
+        keys: str = Query(..., description="Comma-separated dictionary keys, e.g. X_XQ"),
+        auth_id: int | None = Query(default=None, alias="authId"),
+        translated: bool = Query(default=False),
+    ):
+        key_list = [k.strip() for k in keys.split(",")]
+        result = await exams_svc.query_dictionary(_get_client(), keys=key_list, auth_id=auth_id)
+        if translated:
+            data = result.get("data")
+            if isinstance(data, dict):
+                out = {}
+                for k, v in data.items():
+                    if isinstance(v, list):
+                        out[k] = [translate_dictionary_item(i) if isinstance(i, dict) else i for i in v]
+                    else:
+                        out[k] = v
+                return out
+            return result
+        return result
+
+    # ------------------------------------------------------------------
+    # Tutor Meetings
+    # ------------------------------------------------------------------
+    @app.get("/tutor-meetings", tags=["tutor-meetings"])
+    async def tutor_meetings(
+        search_text: str = Query(default="", alias="searchText"),
+        page: int = Query(default=1, ge=1),
+        page_size: int = Query(default=20, ge=1, le=100),
+        translated: bool = Query(default=False),
+    ):
+        client = _get_client()
+        await exams_svc.current_auth_id(client, auth_id=13087)
+        await session_svc.set_language(client)
+        result = await tutor_svc.query_by_page(
+            client, search_type="2", search_text=search_text, page=page, page_size=page_size,
+        )
+        if translated:
+            data = result.get("data") or {}
+            lst = data.get("list") or []
+            data["list"] = [translate_tutor_meeting(r) for r in lst]
+            return data
+        return result
+
+    # ------------------------------------------------------------------
+    # Timetable / Major
+    # ------------------------------------------------------------------
+    @app.get("/timetable/major", tags=["timetable"])
+    async def major_timetable(
+        code: str = Query(...),
+        grade: str = Query(...),
+        calendar_id: int = Query(alias="calendarId"),
+        dir_code: str = Query(default="", alias="dirCode"),
+        is_major: bool = Query(default=False, alias="isMajor"),
+        translated: bool = Query(default=False),
+    ):
+        result = await timetable_svc.major_timetable(
+            _get_client(), code=code, grade=grade, calendar_id=calendar_id,
+            dir_code=dir_code, is_major=is_major,
+        )
+        if translated:
+            return [translate_major_timetable(r) for r in (result.get('data') or [])]
+        return result
+
+    # ------------------------------------------------------------------
+    # Teaching Progress
+    # ------------------------------------------------------------------
+    @app.get("/teaching-progress", tags=["teaching-progress"])
+    async def teaching_progress_list(
+        calendar_id: int | None = Query(default=None, alias="calendarId"),
+        keyword: str = Query(default=""),
+        page: int = Query(default=1, ge=1),
+        page_size: int = Query(default=20, ge=1, le=200),
+        translated: bool = Query(default=False),
+    ):
+        result = await tp_svc.progress_query(
+            _get_client(), calendar_id=calendar_id, keyword=keyword, page=page, page_size=page_size,
+        )
+        if translated:
+            data = result.get("data") or {}
+            data["list"] = [translate_teaching_progress(r) for r in (data.get("list") or [])]
+        return result
+
+    @app.get("/teaching-progress/{id}", tags=["teaching-progress"])
+    async def teaching_progress_detail(
+        id: str,
+        page: int = Query(default=1, ge=1),
+        page_size: int = Query(default=20, ge=1, le=200),
+        translated: bool = Query(default=False),
+    ):
+        result = await tp_svc.get_progress_detail(_get_client(), id=id, page=page, page_size=page_size)
+        if translated:
+            data = result.get("data") or {}
+            data["list"] = [translate_progress_detail(r) for r in (data.get("list") or [])]
         return result
 
     # ------------------------------------------------------------------

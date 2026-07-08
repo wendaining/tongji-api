@@ -75,3 +75,42 @@ async def mutual_find_dept(
         "/api/electionservice/elcMutualCourses/findDept",
         params=params,
     )
+
+
+async def get_is_nest_calendar_id(
+    client: RawOneClient,
+    *,
+    calendar_id: int,
+    mode: int = 1,
+    project_id: str = "1",
+) -> Any:
+    """Check whether a calendar is a nested calendar.
+
+    Ref: POST /api/electionservice/electionRound/getIsNestCalendarId
+    """
+    return await client.request(
+        "POST",
+        "/api/electionservice/electionRound/getIsNestCalendarId",
+        json_body={
+            "calendarId": calendar_id,
+            "mode": mode,
+            "projectId": project_id,
+        },
+    )
+
+
+async def get_elec_student_info(client: RawOneClient, *, calendar_id: int) -> Any:
+    """Get elective student info for a given calendar.
+
+    Ref: GET /api/electionservice/student/getElecStudentInfo
+    """
+    import time
+
+    return await client.request(
+        "GET",
+        "/api/electionservice/student/getElecStudentInfo",
+        params={
+            "calendarId": str(calendar_id),
+            "_t": str(int(time.time() * 1000)),
+        },
+    )
