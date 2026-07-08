@@ -49,15 +49,20 @@ https://1.tongji.edu.cn/api/{service}/...
 - 登录链路最终需要拿到 1 系统侧的 `JSESSIONID` 和 `sessionid`。
 - 业务 API 重点依赖 `sessionid`，请求时需要带 `Cookie: sessionid=...` 和 `X-Token: <sessionid>`。
 - 如果登录态失效，接口可能返回 `{"message":"sessionid is not exist."}`。
-- 自动登录需要处理 IAM 页面参数、RSA 加密密码、跳转链路和可能出现的短信/邮箱加强认证，第一阶段不把它作为 MVP 前置条件。
+- 第一阶段不做“保存账号密码并自动输入”的全自动登录，但要做浏览器登录交接：服务生成登录任务和官方 IAM/1 系统登录入口，用户在官方页面完成登录，服务接收回跳参数后换取并持久化 `sessionid`。
 
 ## 4. 第一阶段 MVP
 
 第一阶段交付一个可在服务器运行的 FastAPI 服务：
 
-1. 支持从环境变量读取 `TJ_SESSIONID`。
-2. 支持通过受保护的本地接口手动写入或更新 `sessionid`。
-3. 将 `sessionid` 持久化到服务器本地文件或轻量数据库。
+1. 支持浏览器登录交接流程：
+   - 服务创建一次性登录任务。
+   - 返回官方 IAM 登录 URL；如果直接 IAM URL 依赖浏览器侧 Cookie，则返回会自然跳转到 IAM 的 1 系统入口 URL。
+   - 用户在浏览器中完成 IAM 登录。
+   - 服务接收 `token`、`uid`、`ts` 等回跳信息。
+   - 服务调用 `POST /api/sessionservice/session/login` 换取 `sessionid`。
+2. 将 `sessionid` 持久化到服务器本地文件或轻量数据库。
+3. 保留 `TJ_SESSIONID` 和手动写入 `sessionid` 作为调试 / 兜底方式，不作为主流程。
 4. 封装统一 raw-one HTTP client：
    - `base_url = https://1.tongji.edu.cn`
    - 自动附带 `Cookie: sessionid=<sessionid>`
@@ -65,6 +70,7 @@ https://1.tongji.edu.cn/api/{service}/...
    - 统一超时、重试边界、错误转换和 session 失效检测
 5. 暴露面向 Agent / AstrBot 的只读 HTTP 工具接口。
 6. 编写 Agent 工具调用规则文档，后续放在 `docs/agent-tools.md`。
+7. 第一阶段不做缓存和限流，先把登录、session 持久化和只读 API 跑通。
 
 ## 5. 推荐技术栈
 
@@ -139,7 +145,8 @@ TJ_API_TOKEN=
 TJ_SESSION_STORE_PATH=./data/session.json
 TJ_ONE_BASE_URL=https://1.tongji.edu.cn
 TJ_REQUEST_TIMEOUT_SECONDS=15
-TJ_CACHE_TTL_SECONDS=60
+TJ_LOGIN_EXPIRES_SECONDS=600
+TJ_PUBLIC_BASE_URL=
 TJ_LOG_LEVEL=INFO
 ```
 
@@ -150,29 +157,50 @@ TJ_LOG_LEVEL=INFO
 - `TJ_SESSION_STORE_PATH`：session 持久化位置。
 - `TJ_ONE_BASE_URL`：raw-one base URL，默认固定为 1 系统。
 - `TJ_REQUEST_TIMEOUT_SECONDS`：请求 1 系统超时时间。
-- `TJ_CACHE_TTL_SECONDS`：只读查询的短缓存时间，避免 Agent 高频重复请求。
+- `TJ_LOGIN_EXPIRES_SECONDS`：一次性浏览器登录任务的有效期。
+- `TJ_PUBLIC_BASE_URL`：服务对浏览器可访问的外部地址，用于生成登录回调地址；内网部署时可以为空。
 
 ## 8. 登录态管理设计
 
-第一阶段采用手动 session 导入：
+第一阶段主流程采用浏览器登录交接，而不是让用户复制浏览器 Cookie：
 
 ```text
-浏览器登录 1.tongji.edu.cn
-  -> 用户从浏览器开发者工具复制 sessionid
-  -> 调用本服务受保护接口写入 sessionid
-  -> one-dot-tongji-api 持久化保存
+AstrBot / 用户 / 管理脚本
+  -> POST /admin/login/start
+  -> one-dot-tongji-api 创建 login_id 和临时登录状态
+  -> 返回官方 IAM 登录 URL，或会跳转到 IAM 的 1 系统登录入口 URL
+  -> 用户在浏览器打开 URL 并完成 IAM 登录
+  -> 浏览器回跳 1 系统 ssologin，得到 token / uid / ts
+  -> one-dot-tongji-api 接收 token / uid / ts
+  -> POST https://1.tongji.edu.cn/api/sessionservice/session/login
+  -> 得到 sessionid 并持久化保存
   -> 后续工具接口自动带 sessionid 请求 raw-one API
 ```
+
+`login_url` 的实现需要实测两种形式：优先返回可以直接登录的 IAM 页面 URL；如果 IAM URL 依赖浏览器侧 Cookie，则返回 `https://1.tongji.edu.cn/api/ssoservice/system/loginIn`，让浏览器自然重定向到 IAM。理想情况下，服务通过自己的回调接口自动接收 `token`、`uid`、`ts`。如果实测发现 1 系统的 SSO 回跳地址不可配置，第一阶段允许一个较轻的降级方式：用户把最终的 `https://1.tongji.edu.cn/ssologin?token=...&uid=...&ts=...` URL 粘贴给 `/admin/login/complete`，由服务解析三元组并换取 `sessionid`。直接粘贴 `sessionid` 只作为最后兜底。
 
 建议内部结构：
 
 ```json
 {
   "sessionid": "redacted",
-  "source": "manual",
+  "source": "browser_handoff",
   "created_at": "2026-07-08T20:00:00+08:00",
   "updated_at": "2026-07-08T20:00:00+08:00",
   "last_validated_at": null
+}
+```
+
+登录任务状态建议单独保存为内存态，过期后自动丢弃：
+
+```json
+{
+  "login_id": "opaque-random-id",
+  "status": "pending",
+  "login_url": "https://1.tongji.edu.cn/api/ssoservice/system/loginIn",
+  "login_url_type": "one_entry_redirects_to_iam",
+  "created_at": "2026-07-08T20:00:00+08:00",
+  "expires_at": "2026-07-08T20:10:00+08:00"
 }
 ```
 
@@ -332,9 +360,12 @@ POST /api/arrangementservice/manualArrange/page?profile
 第一阶段只保留最小管理能力，并要求鉴权：
 
 ```text
+POST /admin/login/start
+POST /admin/login/complete
+GET /admin/login/{login_id}/status
+GET /admin/session/status
 PUT /admin/session
 DELETE /admin/session
-GET /admin/session/status
 ```
 
 鉴权方式：
@@ -343,7 +374,43 @@ GET /admin/session/status
 Authorization: Bearer <TJ_API_TOKEN>
 ```
 
-`PUT /admin/session` 请求体：
+`POST /admin/login/start` 响应示例：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "login_id": "opaque-random-id",
+    "login_url": "https://1.tongji.edu.cn/api/ssoservice/system/loginIn",
+    "login_url_type": "one_entry_redirects_to_iam",
+    "expires_at": "2026-07-08T20:10:00+08:00"
+  }
+}
+```
+
+`POST /admin/login/complete` 支持两种请求体。
+
+优先方式：传入回跳三元组：
+
+```json
+{
+  "login_id": "opaque-random-id",
+  "token": "从 ssologin 回跳拿到的 token",
+  "uid": "从 ssologin 回跳拿到的 uid",
+  "ts": "从 ssologin 回跳拿到的 ts"
+}
+```
+
+降级方式：传入完整回跳 URL，由服务解析：
+
+```json
+{
+  "login_id": "opaque-random-id",
+  "callback_url": "https://1.tongji.edu.cn/ssologin?token=...&uid=...&ts=..."
+}
+```
+
+`PUT /admin/session` 仍保留为调试 / 兜底接口，请求体：
 
 ```json
 {
@@ -374,7 +441,6 @@ Authorization: Bearer <TJ_API_TOKEN>
 - 默认只调用只读接口。
 - 不调用写接口、选课接口、管理接口。
 - session 失效时，回复用户“需要重新登录 1 系统并更新 sessionid”。
-- 不要短时间重复调用同一接口；优先复用最近一次结果。
 - Agent 最终回复应做人话总结，不直接倾倒 raw JSON。
 
 ## 13. 安全策略
@@ -390,7 +456,13 @@ Authorization: Bearer <TJ_API_TOKEN>
 
 ## 14. 缓存和限流
 
-第一阶段不做这些。
+第一阶段不做缓存和限流，先验证 raw-one API 能跑通。所有工具接口每次请求都直接访问 1 系统。
+
+后续准备上线给多用户或高频 Agent 使用时，再补：
+
+- 进程内短缓存或外部缓存。
+- 单 token 简单限流。
+- 针对通知列表、通知详情、课程查询的差异化 TTL。
 
 ## 15. 测试策略
 
@@ -398,6 +470,9 @@ Authorization: Bearer <TJ_API_TOKEN>
 
 第一阶段测试覆盖：
 
+- `POST /admin/login/start` 能创建一次性登录任务并返回登录 URL。
+- `POST /admin/login/complete` 能解析 `token`、`uid`、`ts` 或完整 `ssologin` URL。
+- 登录完成后能调用 mock 的 `session/login` 并持久化 `sessionid`。
 - session store 能读写、更新、清空，且不会把 session 原文写入日志。
 - raw-one client 能正确注入 `Cookie` 和 `X-Token`。
 - raw-one client 能识别 `sessionid is not exist`。
@@ -409,11 +484,14 @@ Authorization: Bearer <TJ_API_TOKEN>
 
 1. 设置 `TJ_API_TOKEN`。
 2. 启动服务。
-3. 调用 `PUT /admin/session` 写入浏览器复制的 `sessionid`。
-4. 调用 `GET /tools/tongji/session/ping`。
-5. 调用 `GET /tools/tongji/calendar/current-week`。
-6. 调用 `GET /tools/tongji/notices?page_size=5`。
-7. 故意写入错误 session，确认返回 `SESSION_EXPIRED`。
+3. 调用 `POST /admin/login/start` 获取登录 URL。
+4. 在浏览器打开登录 URL，并在官方 IAM 页面完成登录。
+5. 如果服务能自动接收回跳，轮询 `GET /admin/login/{login_id}/status` 直到成功。
+6. 如果回跳不能自动接收，把最终 `ssologin?token=...&uid=...&ts=...` URL 交给 `POST /admin/login/complete`。
+7. 调用 `GET /tools/tongji/session/ping`。
+8. 调用 `GET /tools/tongji/calendar/current-week`。
+9. 调用 `GET /tools/tongji/notices?page_size=5`。
+10. 故意写入错误 session，确认返回 `SESSION_EXPIRED`。
 
 ## 16. 分阶段路线图
 
@@ -427,8 +505,9 @@ Authorization: Bearer <TJ_API_TOKEN>
 ### Phase 1B：登录态持久化
 
 - 实现 `SessionStore`。
-- 支持启动时导入 `TJ_SESSIONID`。
-- 实现 `/admin/session` 写入、删除、状态查询。
+- 支持启动时导入 `TJ_SESSIONID` 作为兜底。
+- 实现浏览器登录任务：start、complete、status。
+- 实现 `/admin/session` 写入、删除、状态查询作为调试 / 兜底。
 - 增加脱敏日志工具。
 
 ### Phase 1C：Raw-one Client
@@ -460,7 +539,7 @@ Authorization: Bearer <TJ_API_TOKEN>
 - 使用 RSA 加密密码。
 - 处理 `ActionAuthChain`、`AuthnEngine`、SSO redirect、`session/login`。
 - 支持邮箱验证码或人工输入验证码。
-- 可以把账号密码存入环境变量中
+- 如部署者明确接受风险，可通过环境变量或 secret manager 提供账号密码；默认不启用，不写日志，不进入文档示例的推荐路径。
 
 第三阶段可以整理 raw-one API 知识库：
 
@@ -471,11 +550,11 @@ Authorization: Bearer <TJ_API_TOKEN>
 
 ## 18. 当前决策
 
-第一阶段先实现“手动 sessionid + FastAPI 只读工具接口 + Agent 调用文档”。这条路线能最快验证：
+第一阶段先实现“浏览器 IAM 登录交接 + FastAPI 只读工具接口 + Agent 调用文档”。这条路线能最快验证：
 
 - raw-one 请求规则是否稳定；
 - `sessionid` 持久化是否足够；
 - AstrBot / Agent 调用形态是否顺手；
 - 通知、校历、课程这三类高频问题是否能被自然语言可靠触发。
 
-自动登录、验证码处理、通知镜像归档、附件下载、写接口和开放平台兼容都放到后续阶段。
+缓存、限流、账号密码全自动登录、验证码处理、通知镜像归档、附件下载、写接口和开放平台兼容都放到后续阶段。
