@@ -1,0 +1,51 @@
+from __future__ import annotations
+
+from app.raw_one.session_store import SessionStore
+
+
+def test_session_store_save_read_status_and_clear(tmp_path):
+    store = SessionStore(tmp_path / "session.json")
+
+    assert store.status().has_session is False
+
+    saved = store.save("secret-session", source="manual")
+    assert saved.sessionid == "secret-session"
+
+    loaded = store.read()
+    assert loaded is not None
+    assert loaded.sessionid == "secret-session"
+    assert store.get_sessionid() == "secret-session"
+
+    status = store.public_status()
+    assert status["has_session"] is True
+    assert "sessionid" not in status
+    assert status["source"] == "manual"
+
+    store.clear()
+    assert store.read() is None
+    assert store.public_status() == {
+        "has_session": False,
+        "source": None,
+        "created_at": None,
+        "updated_at": None,
+        "last_validated_at": None,
+    }
+
+
+def test_session_store_imports_initial_sessionid_when_empty(tmp_path):
+    store = SessionStore(tmp_path / "session.json", initial_sessionid="env-session")
+
+    assert store.get_sessionid() == "env-session"
+    assert store.status().source == "environment"
+
+
+def test_session_store_does_not_override_existing_with_initial_sessionid(tmp_path):
+    path = tmp_path / "session.json"
+    store = SessionStore(path)
+    store.save("manual-session", source="manual")
+
+    new_store = SessionStore(path, initial_sessionid="env-session")
+
+    assert new_store.get_sessionid() == "manual-session"
+    assert new_store.status().source == "manual"
+
