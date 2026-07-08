@@ -52,25 +52,6 @@ class RawOneClient:
         )
         return self._parse_response(response)
 
-    async def login_with_sso(self, *, token: str, uid: str, ts: str) -> str:
-        payload = {"token": token, "uid": uid, "ts": ts}
-        response = await self._send(
-            "POST",
-            "/api/sessionservice/session/login",
-            params=None,
-            json_body=payload,
-            require_session=False,
-        )
-        data = self._parse_response(response)
-        sessionid = self._extract_sessionid(response, data)
-        if not sessionid:
-            raise UpstreamError(
-                "1 系统 session/login 未返回 sessionid。",
-                details={"upstream_status": response.status_code},
-            )
-        self.session_store.save(sessionid, source="browser_handoff")
-        return sessionid
-
     async def _send(
         self,
         method: str,
@@ -85,11 +66,12 @@ class RawOneClient:
             "User-Agent": "one-dot-tongji-api/0.1",
         }
         sessionid = self.session_store.get_sessionid()
+        cookie_header = self.session_store.get_cookie_header()
         if require_session:
-            if not sessionid:
+            if not sessionid or not cookie_header:
                 raise NoSessionError()
             headers["X-Token"] = sessionid
-            headers["Cookie"] = f"sessionid={sessionid}"
+            headers["Cookie"] = cookie_header
 
         try:
             return await self._client.request(
@@ -145,31 +127,3 @@ class RawOneClient:
         if isinstance(data, str) and SESSION_EXPIRED_MESSAGE in data:
             return True
         return False
-
-    @staticmethod
-    def _extract_sessionid(response: httpx.Response, data: Any) -> str | None:
-        cookie_sessionid = response.cookies.get("sessionid")
-        if cookie_sessionid:
-            return cookie_sessionid
-
-        if isinstance(data, dict):
-            candidates: list[Any] = [
-                data.get("sessionid"),
-                data.get("sessionId"),
-                data.get("xToken"),
-                data.get("token"),
-            ]
-            nested = data.get("data")
-            if isinstance(nested, dict):
-                candidates.extend(
-                    [
-                        nested.get("sessionid"),
-                        nested.get("sessionId"),
-                        nested.get("xToken"),
-                        nested.get("token"),
-                    ]
-                )
-            for candidate in candidates:
-                if isinstance(candidate, str) and candidate.strip():
-                    return candidate.strip()
-        return None

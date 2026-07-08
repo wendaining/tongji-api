@@ -15,6 +15,7 @@ def utc_now() -> datetime:
 
 class SessionRecord(BaseModel):
     sessionid: str
+    jsessionid: str | None = None
     source: str = "manual"
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -25,6 +26,7 @@ class SessionRecord(BaseModel):
 
 class SessionStatus(BaseModel):
     has_session: bool
+    has_jsession: bool = False
     source: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -32,12 +34,18 @@ class SessionStatus(BaseModel):
 
 
 class SessionStore:
-    def __init__(self, path: Path, *, initial_sessionid: str | None = None) -> None:
+    def __init__(
+        self,
+        path: Path,
+        *,
+        initial_sessionid: str | None = None,
+        initial_jsessionid: str | None = None,
+    ) -> None:
         self.path = path
         self._lock = RLock()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         if initial_sessionid and not self.read():
-            self.save(initial_sessionid, source="environment")
+            self.save(initial_sessionid, source="environment", jsessionid=initial_jsessionid)
 
     def read(self) -> SessionRecord | None:
         with self._lock:
@@ -46,7 +54,7 @@ class SessionStore:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
             return SessionRecord.model_validate(raw)
 
-    def save(self, sessionid: str, *, source: str) -> SessionRecord:
+    def save(self, sessionid: str, *, source: str, jsessionid: str | None = None) -> SessionRecord:
         normalized = sessionid.strip()
         if not normalized:
             raise ValueError("sessionid cannot be empty")
@@ -54,8 +62,12 @@ class SessionStore:
         with self._lock:
             existing = self.read()
             now = utc_now()
+            next_jsessionid = jsessionid
+            if next_jsessionid is None and existing is not None:
+                next_jsessionid = existing.jsessionid
             record = SessionRecord(
                 sessionid=normalized,
+                jsessionid=next_jsessionid,
                 source=source,
                 created_at=existing.created_at if existing else now,
                 updated_at=now,
@@ -76,6 +88,20 @@ class SessionStore:
         record = self.read()
         return record.sessionid if record else None
 
+    def get_jsessionid(self) -> str | None:
+        record = self.read()
+        return record.jsessionid if record else None
+
+    def get_cookie_header(self) -> str | None:
+        record = self.read()
+        if not record:
+            return None
+        cookies = []
+        if record.jsessionid:
+            cookies.append(f"JSESSIONID={record.jsessionid}")
+        cookies.append(f"sessionid={record.sessionid}")
+        return "; ".join(cookies)
+
     def mark_validated(self) -> SessionRecord | None:
         with self._lock:
             existing = self.read()
@@ -94,6 +120,7 @@ class SessionStore:
             return SessionStatus(has_session=False)
         return SessionStatus(
             has_session=True,
+            has_jsession=bool(record.jsessionid),
             source=record.source,
             created_at=record.created_at,
             updated_at=record.updated_at,
@@ -102,4 +129,3 @@ class SessionStore:
 
     def public_status(self) -> dict[str, Any]:
         return self.status().model_dump(mode="json")
-
