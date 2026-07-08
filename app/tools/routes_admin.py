@@ -3,18 +3,15 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
-from app.core.config import Settings, get_settings
 from app.core.responses import ok
 from app.core.security import require_bearer_token
-from app.raw_one.client import RawOneClient
-from app.raw_one.login import parse_ssologin_callback_url
+from app.raw_one.login import LoginResultStatus, ProgrammaticLoginManager
 from app.raw_one.session_store import SessionStore
-from app.tools.dependencies import get_raw_one_client, get_session_store
+from app.tools.dependencies import get_login_manager, get_session_store
 
-SettingsDep = Annotated[Settings, Depends(get_settings)]
-RawOneClientDep = Annotated[RawOneClient, Depends(get_raw_one_client)]
+LoginManagerDep = Annotated[ProgrammaticLoginManager, Depends(get_login_manager)]
 SessionStoreDep = Annotated[SessionStore, Depends(get_session_store)]
 
 router = APIRouter(
@@ -24,54 +21,53 @@ router = APIRouter(
 )
 
 
-class LoginCompleteRequest(BaseModel):
-    callback_url: str | None = None
-    token: str | None = None
-    uid: str | None = None
-    ts: str | None = None
-
-    @model_validator(mode="after")
-    def validate_callback_or_triplet(self) -> LoginCompleteRequest:
-        has_callback = bool(self.callback_url)
-        has_triplet = bool(self.token and self.uid and self.ts)
-        if has_callback == has_triplet:
-            raise ValueError("Provide either callback_url or token/uid/ts.")
-        return self
+class MfaCodeRequest(BaseModel):
+    login_id: str = Field(min_length=1)
+    code: str = Field(min_length=1)
 
 
 class SessionUpdateRequest(BaseModel):
     sessionid: str = Field(min_length=1)
+    jsessionid: str | None = None
+
+
+def _login_result_payload(result) -> dict:
+    if result.status == LoginResultStatus.SUCCESS:
+        return {
+            "status": result.status,
+            "session": result.session_status,
+        }
+    return {
+        "status": result.status,
+        "login_id": result.login_id,
+        "expires_at": result.expires_at.isoformat() if result.expires_at else None,
+        "mfa": {
+            "channel": result.mfa_channel,
+            "masked_email": result.masked_email,
+            "masked_mobile": result.masked_mobile,
+            "next_step": "POST /admin/login/mfa with login_id and code",
+        },
+    }
 
 
 @router.post("/login/start")
-async def start_login(settings: SettingsDep) -> dict:
-    login_url = f"{settings.normalized_one_base_url}/api/ssoservice/system/loginIn"
-    return ok(
-        {
-            "login_url": login_url,
-            "login_url_type": "one_entry_redirects_to_iam",
-            "completion": {
-                "method": "POST",
-                "url": "/admin/login/complete",
-                "body": {"callback_url": "https://1.tongji.edu.cn/ssologin?token=...&uid=...&ts=..."},
-            },
-        }
-    )
+async def start_login(login_manager: LoginManagerDep) -> dict:
+    result = await login_manager.start_login()
+    return ok(_login_result_payload(result))
 
 
-@router.post("/login/complete")
-async def complete_login(
-    body: LoginCompleteRequest,
-    client: RawOneClientDep,
-    store: SessionStoreDep,
+@router.post("/login/mfa")
+async def submit_login_mfa(
+    body: MfaCodeRequest,
+    login_manager: LoginManagerDep,
 ) -> dict:
-    if body.callback_url:
-        callback = parse_ssologin_callback_url(body.callback_url)
-        token, uid, ts = callback.token, callback.uid, callback.ts
-    else:
-        token, uid, ts = body.token or "", body.uid or "", body.ts or ""
-    await client.login_with_sso(token=token, uid=uid, ts=ts)
-    return ok(store.public_status())
+    result = await login_manager.submit_mfa_code(login_id=body.login_id, code=body.code)
+    return ok(_login_result_payload(result))
+
+
+@router.get("/login/{login_id}/status")
+async def login_status(login_id: str, login_manager: LoginManagerDep) -> dict:
+    return ok(await login_manager.pending_status(login_id))
 
 
 @router.get("/session/status")
@@ -84,7 +80,7 @@ async def update_session(
     body: SessionUpdateRequest,
     store: SessionStoreDep,
 ) -> dict:
-    store.save(body.sessionid, source="manual")
+    store.save(body.sessionid, source="manual", jsessionid=body.jsessionid)
     return ok(store.public_status())
 
 
