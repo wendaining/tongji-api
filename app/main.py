@@ -13,7 +13,14 @@ from app.raw_one.client import RawOneClient
 from app.raw_one.imap import ImapConfig
 from app.raw_one.login import ProgrammaticLoginManager
 from app.raw_one.session_store import SessionStore
-from app.tools import routes_admin, routes_calendar, routes_courses, routes_notices, routes_session
+from app.tools import (
+    routes_admin,
+    routes_calendar,
+    routes_courses,
+    routes_notices,
+    routes_session,
+    routes_students,
+)
 
 
 @asynccontextmanager
@@ -78,6 +85,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_calendar.router)
     app.include_router(routes_notices.router)
     app.include_router(routes_courses.router)
+    app.include_router(routes_students.router)
     return app
 
 
