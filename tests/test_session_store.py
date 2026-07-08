@@ -8,16 +8,20 @@ def test_session_store_save_read_status_and_clear(tmp_path):
 
     assert store.status().has_session is False
 
-    saved = store.save("secret-session", source="manual")
+    saved = store.save("secret-session", source="manual", jsessionid="secret-jsession")
     assert saved.sessionid == "secret-session"
+    assert saved.jsessionid == "secret-jsession"
 
     loaded = store.read()
     assert loaded is not None
     assert loaded.sessionid == "secret-session"
     assert store.get_sessionid() == "secret-session"
+    assert store.get_jsessionid() == "secret-jsession"
+    assert store.get_cookie_header() == "JSESSIONID=secret-jsession; sessionid=secret-session"
 
     status = store.public_status()
     assert status["has_session"] is True
+    assert status["has_jsession"] is True
     assert "sessionid" not in status
     assert status["source"] == "manual"
 
@@ -25,6 +29,7 @@ def test_session_store_save_read_status_and_clear(tmp_path):
     assert store.read() is None
     assert store.public_status() == {
         "has_session": False,
+        "has_jsession": False,
         "source": None,
         "created_at": None,
         "updated_at": None,
@@ -48,4 +53,3 @@ def test_session_store_does_not_override_existing_with_initial_sessionid(tmp_pat
 
     assert new_store.get_sessionid() == "manual-session"
     assert new_store.status().source == "manual"
-

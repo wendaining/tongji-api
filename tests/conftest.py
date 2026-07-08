@@ -10,8 +10,11 @@ from app.main import create_app
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("TJ_API_TOKEN", "test-token")
+    monkeypatch.setenv("TJ_IAM_USERNAME", "student-id")
+    monkeypatch.setenv("TJ_IAM_PASSWORD", "password")
     monkeypatch.setenv("TJ_SESSION_STORE_PATH", str(tmp_path / "session.json"))
     monkeypatch.delenv("TJ_SESSIONID", raising=False)
+    monkeypatch.delenv("TJ_JSESSIONID", raising=False)
     reset_settings_cache()
     app = create_app()
     with TestClient(app) as test_client:
@@ -22,4 +25,3 @@ def client(tmp_path, monkeypatch):
 @pytest.fixture
 def auth_headers() -> dict[str, str]:
     return {"Authorization": "Bearer test-token"}
-
