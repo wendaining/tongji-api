@@ -11,7 +11,7 @@
 | 3 | `notices` | `notices`, `notice <id>` | `/notices`, `/notices/{id}` | ✅ | ✅ |
 | 4 | `calendar` | `calendar list/current-term` | `/calendar/*` | ✅ | ✅ |
 | 5 | `grades` | `scores` | `/grades` | ✅ | ✅ |
-| 6 | `culture` | `plan` | `/plan/credits`, `/plan/courses` | ✅ | ✅ |
+| 6 | `culture` | `plan`, `plan-detail` | `/plan/credits`, `/plan/courses`, `/plan/detail` | ✅ | ✅ |
 | 7 | `courses` | `courses` | `/courses` | ✅ | ⚠️ 暑假无数据 |
 | 8 | `timetable` | `timetable` | `/timetable` | ✅ | ⚠️ 暑假无数据 |
 | 9 | `elections` | `cross-courses` | `/cross-courses/apply` | ✅ | 跨学科选课申请 |
@@ -33,6 +33,13 @@
 | `GET /plan/credits` | 来自培养方案，显示已修/应修学分进度 |
 | `GET /plan/courses` | 来自培养方案，86 个课程模块（含未修课程） |
 | `GET /calendar/current-week` | **不可用**，上游报 `getCurrentWeek.arg0: 不能为null` |
+| `GET /plan/detail` | 来自培养方案详情页 `myBclCultureScheme`，返回方案元信息、模板明细、学期、课程标签 |
+| `GET /plan/detail/queryStudentCultureScheme` | 学生培养方案关联查询，获取关联的 scheme ID |
+| `GET /plan/detail/cultureSchemeById/{id}` | 按 ID 查培养方案详情 |
+| `GET /plan/detail/cultureSchemeDetailList/{id}` | 培养方案模板明细列表 |
+| `GET /plan/detail/cultureSchemeTerms/{id}` | 培养方案对应学期 |
+| `GET /plan/detail/cultureLabelList/{id}` | 方案课程标签列表 |
+| `GET /plan/detail/cultureLabelRelation/{id}` | 方案课程标签关联 |
 
 ## 未实现
 
@@ -45,27 +52,54 @@
 | 1 | ✅ 课表 | `timetable/course/{sid}` | 已实现，暑假无数据 |
 | 2 | ✅ 成绩 | `scoreGrades/getMyGrades` | 已实现 |
 | 3 | ✅ 学生信息 | `studentInfo/findStuInfoList` | 已实现 |
-| 4 | ✅ 培养方案 | `bclCulturePlan/*` | 已实现 |
+| 4 | ✅ 培养方案 | `bclCulturePlan/*`, `bclCultureScheme/*`, `bclStudentCultureRel/*` | 已实现（含详情页） |
 | 5 | 🔲 考试安排 | `undergraduateExamQuery/*` | 未实现 |
 | 6 | 🔲 数据字典 | `dictionary/query` | 未实现 |
 | 7 | 🔲 选课查询 | `elcCourseTake/page` | 未实现（只读查询） |
-| 8 | 🔲 教师信息 | `teacherInfo/*` | 未实现 |
+| 8 | 🔲 教师信息 | `teacherInfo/findTeacherInfoList` | ✅ **已确认可用**，POST 请求，学生可查 |
 
-### 从浏览器 Network 发现的其他 API
+### 主动探测发现的其他可用 API
 
-| API | 页面 | 说明 |
-|-----|------|------|
-| `scoremanagementservice/studentScoreBk/queryCourseTag` | oldStysteMyGrades | 课程成绩标签（辅助） |
-| `studentservice/studentDetailInfo/getStatusInfoByStudentId` | oldStysteMyGrades | 学籍状态信息 |
-| `evaluationservice/questionnaireStudent/force` | oldStysteMyGrades | 评教强制问卷 |
-| `commonservice/dictionary/query` | oldStysteMyGrades | 字典查询（JSON body） |
-| `sessionservice/session/currentAuthId` | oldStysteMyGrades | 当前权限 ID |
-| `electionservice/elcMutualApply/page` | 跨学科选课申请 | 跨学科选课申请列表 |
-| `electionservice/elcMutualCourses/findDept` | 跨学科选课申请 | 跨学科选课院系列表 |
+> 以下端点通过对 1.tongji.edu.cn 发起真实 HTTP 请求验证，学生 Session 能返回真实数据。
+
+| 服务 | 端点 | 方法 | 说明 | 数据 |
+|------|------|------|------|------|
+| `commonservice` | `administrativeClass/query` | POST | 行政班查询 | 20+ 条 |
+| `commonservice` | `workbenchMsg/queryAllWorkbenchMsg` | POST | 工作台消息 | 20 条/页 |
+| `commonservice` | `commonMsgPublish/myNotReadCommonMsgCount` | GET | 未读通知数 | 返回计数 |
+| `commonservice` | `campusProfession/findCampusProfessionList` | POST | 校区专业列表 | 100+ 条 |
+| `baseresservice` | `holiday/list` | GET | 假期列表 | 37 条 |
+| `baseresservice` | `schoolCalendar/nextTermCalendar` | GET | 下学期校历 | 1 条 |
+| `baseresservice` | `schoolCalendar/currentTermCalendar` | GET | 当前学期（直接查） | 1 条 |
+| `baseresservice` | `classroomController/getClassroomInfoList` | POST | 教室/建筑信息 | 20 条/页 |
+| `baseresservice` | `classroomOccupation/getClassroomUsageRateByWeek` | POST | 教室占用率（按周） | 1068 条 |
+| `cultureservice` | `bclCourses/page` | POST | 课程库分页查询 | 20 条/页 |
+| `arrangementservice` | `teachingTask/page` | POST | 教学任务查询 | 2890 条 |
+| `scoremanagementservice` | `studentScoreBk/queryCourseTag` | GET | 课程标签（精品/通识/美育分类） | 12 条 |
+| `sessionservice` | `session/queryQuickAccessMenu` | GET | 快捷菜单/权限树 | 20 项 |
+| `sessionservice` | `session/getSessionUser` | GET | 当前登录用户完整信息 | 1 条 |
+| `studentservice` | `teacherInfo/findTeacherInfoList` | POST | 教师信息查询 | 10+ 条/页 |
+
+**注**：以上均以本科生示例用户的账号验证。其中 `teacherInfo` 之前标记为未实现，实际可用。
+
+### 教师/管理端 API（学生 Session 不可用）
+
+以下端点虽然在前端代码中引用，但用学生 Session 调用返回 403/404/405 或"无权限"，因此在本项目中不需要实现：  
+
+| API | 原因 |
+|-----|------|
+| `studentDetailInfo/getStatusInfoByStudentId` | 405 Method Not Allowed |
+| `studentEduBackg/findEduBackgroudList` | 405 |
+| `studentAward/findAwardList` | 404 |
+| `studentRegister/findRegisterInfo` | 404 |
+| `studentParty/findPartyInfo` | 404 |
+| `studentDic/findAllStuDicts` | 405 |
+| `studentInfo/findAllStuInfoList` | 无权限 |
+| `evaluationservice/questionnaireStudent/force` | 需评教上下文 |
 
 ### 管理端/写入 API（后续阶段）
 
-29 个微服务中大部分为管理端 API（排课管理、选课管理、学籍管理、用户管理等），约 900+ 端点，暂不实现。
+34 个微服务中大部分为管理端 API（排课管理、选课管理、学籍管理、用户管理等），约 1100+ 端点，暂不实现。
 
 ## CLI 命令速查
 
@@ -73,6 +107,7 @@
 python -m tongji me              # 学生信息
 python -m tongji scores          # 完整成绩单
 python -m tongji plan            # 培养方案 + 学分统计
+python -m tongji plan-detail     # 培养方案详情（方案/模板/学期/标签）
 python -m tongji notices         # 通知列表
 python -m tongji notice <id>     # 通知详情
 python -m tongji calendar list   # 校历列表
@@ -96,6 +131,13 @@ GET /notices/{id}
 GET /grades
 GET /plan/credits
 GET /plan/courses
+GET /plan/detail
+GET /plan/detail/queryStudentCultureScheme?stuid={sid}
+GET /plan/detail/cultureSchemeById/{schemeId}
+GET /plan/detail/cultureSchemeDetailList/{cultureId}
+GET /plan/detail/cultureSchemeTerms/{schemeId}
+GET /plan/detail/cultureLabelList/{schemeId}
+GET /plan/detail/cultureLabelRelation/{schemeId}
 GET /courses
 GET /timetable
 GET /calendar/list

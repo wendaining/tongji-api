@@ -385,6 +385,59 @@ async def cmd_plan() -> None:
         await client.aclose()
 
 
+async def cmd_plan_detail() -> None:
+    """Fetch detailed culture scheme info from myBclCultureScheme page."""
+    from tongji.core.services import culture as culture_svc
+
+    client = _load_client()
+    try:
+        stu_result = await student_svc.student_info_list(client, page=1, page_size=1)
+        students = (stu_result.get("data") or {}).get("list", [])
+        if not students:
+            _print("无法获取学生信息。", ok=False)
+            return
+        sid = students[0].get("studentId", "")
+
+        # 1. Query student culture scheme association
+        scheme_rel = await culture_svc.student_culture_scheme(client, student_id=sid)
+        scheme_data = scheme_rel.get("data")
+        if not scheme_data:
+            _print({"error": "未找到培养方案关联", "raw": scheme_rel.get("msg", "")}, ok=False)
+            return
+
+        scheme_id = None
+        if isinstance(scheme_data, list) and scheme_data:
+            scheme_id = scheme_data[0].get("cultureSchemeId") or scheme_data[0].get("id")
+        elif isinstance(scheme_data, dict):
+            scheme_id = scheme_data.get("cultureSchemeId") or scheme_data.get("id")
+
+        if not scheme_id:
+            _print({"error": "无法提取培养方案 ID", "data": scheme_data})
+            return
+
+        # 2. Fetch scheme detail
+        scheme = await culture_svc.culture_scheme_by_id(client, scheme_id=scheme_id)
+
+        # 3. Fetch scheme detail/template list
+        detail = await culture_svc.culture_scheme_detail_list(client, culture_id=scheme_id)
+
+        # 4. Fetch school terms for this scheme
+        terms = await culture_svc.culture_scheme_terms(client, scheme_id=scheme_id)
+
+        # 5. Fetch course labels
+        labels = await culture_svc.culture_label_list(client, scheme_id=scheme_id)
+
+        _print({
+            "培养方案ID": scheme_id,
+            "方案信息": scheme.get("data") or scheme,
+            "模板明细": detail.get("data") or detail,
+            "学期": terms.get("data") or terms,
+            "课程标签数": len(labels.get("data") or []),
+        })
+    finally:
+        await client.aclose()
+
+
 async def cmd_calendar(action: str) -> None:
     from tongji.core.dict import translate_calendar
 
@@ -464,6 +517,7 @@ def main():
 
     # plan
     subs.add_parser("plan", help="Culture plan / credit stats")
+    subs.add_parser("plan-detail", help="Culture plan detail (scheme, terms, labels)")
 
     # timetable
     tt_p = subs.add_parser("timetable", help="Student course timetable")
@@ -541,6 +595,8 @@ def main():
         asyncio.run(cmd_scores())
     elif args.command == "plan":
         asyncio.run(cmd_plan())
+    elif args.command == "plan-detail":
+        asyncio.run(cmd_plan_detail())
     elif args.command == "timetable":
         asyncio.run(cmd_timetable(args.calendar))
     elif args.command == "major-timetable":
