@@ -6,7 +6,7 @@
 
 目前项目仍处于第一阶段：
 
-- 服务端按 XiaLing233 的流程程序化完成同济 IAM 登录
+- 服务端按 [XiaLing233 的流程程序化](https://blog.xialing.icu/2025/01/tongji-bulletin-mirror/)完成同济 IAM 登录
 - 通过环境变量提供 IAM 学号和密码；密码只从配置读取，不写入 session 文件
 - 如果触发邮箱 MFA，自动通过 IMAP（QQ 邮箱）读取验证码
 - 将 `JSESSIONID` 和 `sessionid` 持久化到本地 JSON 文件
