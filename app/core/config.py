@@ -9,10 +9,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     api_token: str | None = None
+    iam_username: str | None = None
+    iam_password: str | None = None
     sessionid: str | None = None
+    jsessionid: str | None = None
     session_store_path: Path = Path("./data/session.json")
     one_base_url: str = "https://1.tongji.edu.cn"
     request_timeout_seconds: float = Field(default=15, gt=0)
+    login_expires_seconds: int = Field(default=600, gt=0)
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(
@@ -30,6 +34,12 @@ class Settings(BaseSettings):
         if not self.api_token:
             raise RuntimeError("TJ_API_TOKEN is required before starting one-dot-tongji-api")
 
+    def require_iam_credentials(self) -> None:
+        if not self.iam_username or not self.iam_password:
+            raise RuntimeError(
+                "TJ_IAM_USERNAME and TJ_IAM_PASSWORD are required for programmatic login"
+            )
+
 
 @lru_cache
 def get_settings() -> Settings:
@@ -38,4 +48,3 @@ def get_settings() -> Settings:
 
 def reset_settings_cache() -> None:
     get_settings.cache_clear()
-
