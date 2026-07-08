@@ -131,6 +131,29 @@ def translate_course(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Timetable
+# ---------------------------------------------------------------------------
+
+TIMETABLE_LABEL_FIELDS = [
+    ("courseName", "课程名称"),
+    ("teacherName", "教师"),
+    ("classroomName", "教室"),
+    ("weekDay", "星期"),
+    ("startSection", "起始节次"),
+    ("endSection", "结束节次"),
+    ("weeks", "周次"),
+    ("campusName", "校区"),
+    ("courseCode", "课程代码"),
+    ("credit", "学分"),
+]
+
+
+def translate_timetable(raw: dict[str, Any]) -> dict[str, Any]:
+    """Translate a timetable entry."""
+    return {label: _pick(raw, code) for code, label in TIMETABLE_LABEL_FIELDS}
+
+
+# ---------------------------------------------------------------------------
 # Generic helper
 # ---------------------------------------------------------------------------
 

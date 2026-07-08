@@ -13,7 +13,7 @@ from fastapi import FastAPI, Query
 
 from tongji.core.config import get_settings
 from tongji.core.client import RawOneClient
-from tongji.core.dict import translate_calendar, translate_course, translate_notice
+from tongji.core.dict import translate_calendar, translate_course, translate_notice, translate_timetable
 from tongji.core.errors import register_error_handlers
 from tongji.core.logging import configure_logging
 from tongji.core.session_store import SessionStore
@@ -23,6 +23,7 @@ from tongji.core.services import (
     notices as notices_svc,
     session as session_svc,
     students as student_svc,
+    timetable as timetable_svc,
 )
 
 _client: RawOneClient | None = None
@@ -172,6 +173,26 @@ def create_app() -> FastAPI:
     # ------------------------------------------------------------------
     # Session
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Timetable
+    # ------------------------------------------------------------------
+    @app.get("/timetable", tags=["timetable"])
+    async def timetable(
+        student_id: str = Query(alias="studentId"),
+        calendar_id: int = Query(alias="calendarId"),
+        campus: str = Query(default=""),
+        translated: bool = Query(default=False),
+    ):
+        result = await timetable_svc.student_timetable(
+            _get_client(),
+            student_id=student_id,
+            calendar_id=calendar_id,
+            campus=campus,
+        )
+        if translated:
+            return [translate_timetable(r) for r in (result.get("data") or [])]
+        return result
+
     @app.get("/session/ping", tags=["session"])
     async def session_ping():
         return await session_svc.ping(_get_client())

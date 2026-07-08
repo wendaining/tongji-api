@@ -187,6 +187,31 @@ async def cmd_courses(calendar: int | None, page: int, page_size: int) -> None:
         await client.aclose()
 
 
+async def cmd_timetable(calendar: int | None) -> None:
+    from tongji.core.dict import translate_timetable
+    from tongji.core.services import timetable as tt_svc
+
+    settings = get_settings()
+    client = _load_client()
+    try:
+        stu_result = await student_svc.student_info_list(client, page=1, page_size=1)
+        students = (stu_result.get("data") or {}).get("list", [])
+        if not students:
+            _print("无法获取学生信息。", ok=False)
+            return
+        s = students[0]
+        sid = s.get("studentId", "")
+        campus = str(s.get("campus", ""))
+        cal = calendar or 121  # default to current term
+
+        result = await tt_svc.student_timetable(client, student_id=sid, calendar_id=cal, campus=campus)
+        raw_list = (result.get("data") or [])
+        translated = [translate_timetable(r) for r in raw_list]
+        _print({"calendar": cal, "count": len(translated), "items": translated})
+    finally:
+        await client.aclose()
+
+
 async def cmd_calendar(action: str) -> None:
     from tongji.core.dict import translate_calendar
 
@@ -254,6 +279,10 @@ def main():
     cal_p = subs.add_parser("calendar", help="Calendar operations")
     cal_p.add_argument("action", choices=["list", "current-term", "current-week"])
 
+    # timetable
+    tt_p = subs.add_parser("timetable", help="Student course timetable")
+    tt_p.add_argument("--calendar", type=int, default=None)
+
     # ping
     subs.add_parser("ping", help="Test 1.tongji.edu.cn session")
 
@@ -294,6 +323,8 @@ def main():
         asyncio.run(cmd_courses(args.calendar, args.page, args.page_size))
     elif args.command == "calendar":
         asyncio.run(cmd_calendar(args.action))
+    elif args.command == "timetable":
+        asyncio.run(cmd_timetable(args.calendar))
     elif args.command == "ping":
         asyncio.run(cmd_ping())
     else:
