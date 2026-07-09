@@ -103,7 +103,8 @@ uv run python -m build
 
 Agent 开始任务前应阅读 [AGENTS.md](AGENTS.md)。接口清单见
 [API 文档](docs/api.md)，逆向和开发经验见
-[开发经验沉淀](docs/development.md)。
+[开发经验沉淀](docs/development.md)。部署到 AstrBot 时使用
+[Skill](docs/SKILL.md)。
 
 ## 安全边界
 

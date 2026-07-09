@@ -2,7 +2,7 @@
 
 ## 项目定位
 
-`tongji-api` 是 `1.tongji.edu.cn` 的只读 API 工具层，不是网页、通知镜像或 Agent Skill。
+`tongji-api` 是 `1.tongji.edu.cn` 的只读 API 工具层，不是网页或通知镜像。仓库只维护一份供 AstrBot/Agent 调用服务的 `docs/SKILL.md`，不包含框架插件代码。
 
 架构分为：
 
@@ -94,8 +94,9 @@ uv run python -m build
 
 - `api.md`：从 registry 和 FastAPI 自动生成的公开 API 文档。
 - `development.md`：人工维护的逆向经验、架构决策和已知问题。
+- `SKILL.md`：供 AstrBot/Agent 使用的中文 API 调用指令。
 
-Agent 的操作入口是根目录 `AGENTS.md`。不要在本仓库添加 `SKILL.md`。
+仓库开发 Agent 的操作入口是根目录 `AGENTS.md`；部署后的聊天 Agent 使用 `docs/SKILL.md`。
 
 ## Git 提交
 

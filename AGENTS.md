@@ -149,6 +149,6 @@ uv run tongji tool me
 
 ## 项目边界
 
-- 本项目只提供 API、SDK 和调试 CLI，不包含 Agent Skill。
-- Skill、AstrBot 插件和特定 Agent 提示词应作为独立衍生项目维护。
+- 本项目以 API、SDK 和调试 CLI 为主体。
+- `docs/SKILL.md` 是部署到 AstrBot 时使用的调用说明，不承载框架插件代码。
 - 本项目只实现只读查询，不调用选课写入、管理和其他破坏性接口。
