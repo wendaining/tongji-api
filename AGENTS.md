@@ -1,187 +1,154 @@
-# AGENTS.md
+# Agent 操作手册
 
-## 项目背景
+## 先做什么
 
-`tongji-api` 是一个面向同济大学 `1.tongji.edu.cn` 系统的服务端 API 工具层。它为 AstrBot、agent、脚本以及其他自动化工具而构建，这些工具需要以结构化方式访问学校相关信息，如通知、日历数据、当前教学周和课程安排。
+这个项目是同济大学 `1.tongji.edu.cn` 的只读 API 工具服务。收到“查通知、课表、成绩、考试”等任务时：
 
-该项目并非前端网站。其主要职责是保留并文档化原始 1 系统 API 的调用规则，然后暴露一个小型的只读 HTTP 工具接口，供 agent 在理解用户通过 QQ、微信或其他聊天渠道发出的自然语言请求后调用。
+1. 先读本文件，不要先翻源码。
+2. 优先调用 `/tools/tongji/*`，它会自动补齐学号、当前学期和教学周。
+3. 只有缺少对应工具或需要调试原始响应时，才使用 `/api/*` 或 `tongji call`。
+4. 不要向用户索要 IAM 密码、验证码、Cookie、`sessionid` 或 `JSESSIONID`。
 
-## 核心方向
+开发与提交规范不在本文件，见 `CONTRIBUTING.md`。
 
-- 运行时流量必须指向 `https://1.tongji.edu.cn` 及其原始的 `/api/{service}/...` 端点。
-- 不要针对同济开放平台 `https://api.tongji.edu.cn/v1/...` 进行开发。
-- 不要引入开放平台的 `client_id`、`client_secret`、OAuth 作用域或 bearer token。
-- 第一阶段按 XiaLing233 的状态机流程程序化登录 1 系统。
-- IAM 学号和密码通过环境变量或本地配置提供；不得写入日志或 session 文件。
-- MFA 支持 IMAP 自动读取或同进程手动输入，不保存验证码。
-- 登录成功后持久化 1 系统的 `JSESSIONID` 和 `sessionid`。
-- 第一阶段为只读：仅限会话、通知、日历和课程安排的查询。
+## 选择最快入口
 
-## 接口调用规范（XiaLing233 参考实现）
+### 首选：常驻 HTTP 服务
 
-本项目代码严格对齐 XiaLing233 / fetch-1-dot-tongji 的调用方式。
-参考仓库：https://github.com/XiaLing233/fetch-1-dot-tongji
+先探测：
 
-### 登录流程
-
-登录模块完整复刻 `crawler/auth/loginout.py` 的 SSO 状态机流程：
-
-1. GET `https://1.tongji.edu.cn/api/ssoservice/system/loginIn`（自动跟随重定向到 IAM 登录页）
-2. 从页面提取 `authnLcKey`、RSA 脚本地址、`spAuthChainCode`
-3. RSA 加密密码（PKCS1_v1_5 + Base64）
-4. POST `ActionAuthChain`（form-encoded）提交凭据
-5. 如需 MFA：POST `sendCheckCode.do` 发送邮箱验证码 → 用户手动提交
-6. POST `AuthnEngine` 换取 Location
-7. 跟随重定向到 `ssologin`，解析 token/uid/ts
-8. POST `session/login` 换取 `sessionid`
-
-任何时候修改登录相关代码，必须先对照 XiaLing233 的 `loginout.py` 和 `encrypt.py`。
-
-### HTTP 客户端统一规范
-
-所有对 `1.tongji.edu.cn` 的请求必须通过 `RawOneClient` 发出，并遵守以下规范：
-
-**请求头**（全部使用浏览器风格，不暴露自建服务特征）：
-```text
-User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36
-Accept: application/json, text/plain, */*
-Accept-Language: zh-CN,zh;q=0.9
-Accept-Encoding: gzip, deflate, br, zstd
-X-Token: <sessionid>
-Cookie: JSESSIONID=<jsessionid>; sessionid=<sessionid>
+```bash
+curl -s http://127.0.0.1:8000/healthz
 ```
 
-**POST 请求体**：全部使用 `application/x-www-form-urlencoded`（form-encoded），不使用 JSON。这与 XiaLing233 的 `data=dict` + `urlencode()` 一致。
+成功时直接调用 HTTP。常驻服务会复用 Python 进程、连接池和 session，适合一次任务中的连续查询。
 
-```python
-# 正确：form-encoded
-client.request("POST", "/api/...", data={"pageNum_": 1, "pageSize_": 20})
+如果服务未启动：
 
-# 错误：不要绕过 RawOneClient 发送 JSON body
+```bash
+uv run tongji serve
 ```
 
-嵌套字段用 Spring MVC 点号扁平化：
-```python
-{"condition.trainingLevel": "", "condition.campus": ""}
+### 次选：单进程聚合 CLI
+
+不方便启动服务，但只需完成一个任务时，使用：
+
+```bash
+uv run tongji tool <tool-name> [--data '<json>']
 ```
 
-**GET 请求**：查询参数使用 `params=` 传递，必要时附加 `t` 缓存时间戳（毫秒级 Unix 时间）：
-```python
-client.request("GET", "/api/.../findById", params={"id": id, "t": str(int(time.time() * 1000))})
+`tongji tool` 会在一次进程内完成学号、学期、课表等依赖查询。不要把它拆成多次 `tongji call`。
+
+### 最后：Raw CLI
+
+```bash
+uv run tongji call <module-name> --data '<json>'
 ```
 
-### Cookie 与 session 管理
+每次 `tongji call` 都会重新启动 Python，通常需要约 1 至 2 秒。它是 raw API 调试入口，不是日常 Agent 任务入口。
 
-- `SessionStore` 持久化 `JSESSIONID` 和 `sessionid`，从 cookie jar 自动提取
-- `get_cookie_header()` 构造完整的 Cookie 请求头
-- 业务 API 调用自动注入 `X-Token` 和 `Cookie`
-- Session 失效检测：状态码 401/403 或响应包含 `sessionid is not exist`
+可用 module 和参数：
 
-### 不在日志中打印的敏感字段
+```bash
+uv run tongji modules
+```
 
-`sessionid`、`JSESSIONID`、`Cookie`、`X-Token`、`Authorization`、`token`、`j_password`、`sms_checkcode`、IAM 密码。
+## 常见任务
 
-### 未实现 / 后续阶段
-
-- AES 文件路径加密（`encrypt.py` 的 `getAESKeyAndIV` / `encryptFilePath`）
-- 退出登录（`loginout.py` 的 `logout`）
-- `currentWeek` 上游接口的参数绑定仍待确认，Agent 工具提供校历计算回退。
-
-## 预期流程
+### 学校通知
 
 ```text
-QQ / 微信
-  -> AstrBot / Agent
-  -> tongji-api
-  -> https://1.tongji.edu.cn/api/{service}/...
+GET /tools/tongji/notices?page_size=20
+uv run tongji tool notices --data '{"page_size":20}'
 ```
 
-Agent 应调用此服务查询学校信息，然后将结构化响应以自然语言总结后返回给用户。
+用户追问具体通知时再调用：
 
-## 安全注意事项
+```text
+GET /tools/tongji/notices/{notice_id}
+uv run tongji tool notice --data '{"notice_id":"..."}'
+```
 
-- 将 IAM 密码、验证码、`sessionid`、Cookie、SSO token 和授权头视为机密信息。
-- 不要在日志、示例、测试或文档中打印机密信息。
-- 第一阶段不包含写入 API、选课 API 和管理 API。
-- 默认部署应为本地、私有或由服务 token 保护。
+不要一开始就逐条请求所有通知详情。
 
-## Git 提交规范
+### 今天或本周课程
 
-使用双段式提交信息。
+```text
+GET /tools/tongji/schedule/today
+GET /tools/tongji/schedule/week
 
-第一行必须使用英文 Conventional Commits 格式：
+uv run tongji tool schedule-today
+uv run tongji tool schedule-week
+```
 
-<type>(optional scope): <short English summary>
+工具会自动查询当前学生、当前学期和教学周，不要先手工调用 `students_me`。
 
-然后空一行。
+### 当前教学周和学期
 
-空行之后，用中文撰写详细的提交说明。
+```text
+GET /tools/tongji/calendar/current-week
+GET /tools/tongji/calendar/current-term
 
-允许的类型：
+uv run tongji tool current-week
+uv run tongji tool current-term
+```
 
-* feat：新功能
-* fix：Bug 修复
-* docs：仅文档变更
-* style：不影响代码行为的格式变更
-* refactor：既非修复也非功能的代码变更
-* perf：性能改进
-* test：添加或更新测试
-* build：构建系统、依赖、包管理、Docker 或 uv 相关变更
-* ci：CI/CD 变更，包括 GitHub Actions
-* chore：不归入其他类型的维护任务
-* revert：回退之前的提交
+当上游 `currentWeek` 不可用时，工具会根据校历计算，并在 `meta.source` 中返回 `calculated`。
 
-第一行规则：
+### 成绩与指定学期绩点
 
-* 仅使用英文。
-* 保持简洁，尽量控制在 72 个字符以内。
-* 类型使用小写。
-* 使用祈使语气，如 "add"、"fix"、"update"、"remove"。
-* 必要时使用 scope（作用域），例如：
+```text
+GET /tools/tongji/grades
+uv run tongji tool grades
+```
 
-  * feat(bot): add /status command
-  * fix(parser): handle merged QQ chat records
-  * ci(deploy): add SSH deployment workflow
-  * build(docker): add production Dockerfile
+这一步已经自动查询本人学号。不要再先调用 `students_me`。
 
-中文详细说明规则：
+成绩结果通常按学期存放在 `data.term[]`：
 
-* 使用中文。
-* 说明变更内容。
-* 必要时说明变更原因。
-* 提及受影响的重要模块、文件或行为。
-* 如有破坏性变更、迁移步骤或部署注意事项，请注明。
-* 不要写模糊的描述，如"修改了一些代码"或"优化项目"。
-* 保持详细说明简洁，通常 2~5 条要点。
+- 使用 `termName` 判断自然语言学期名称。
+- 使用 `calName` 或上游学期代码精确匹配。
+- 每学期课程一般位于 `creditInfo[]`。
+- 用户说“大二下”但无法唯一映射时，应向用户确认学年，不要猜固定 calendar ID。
 
-推荐格式：
+### 成绩排名
 
-<type>(optional scope): <short English summary>
+```text
+GET /tools/tongji/scores/rank
+uv run tongji tool score-rank
+```
 
-* 做了什么：……
-* 为什么：……
-* 影响范围：……
-* 注意事项：……
+排名接口可能合法返回 `data: null`。此时 `meta.available=false`，应回答“当前账号或当前时间暂无可用排名”，不要当作程序异常，也不要反复重试。
 
-示例：
+### 考试安排
 
-feat(parser): support merged QQ chat records
+```text
+GET /tools/tongji/exams
+uv run tongji tool exams
+```
 
-* 做了什么：新增对 QQ 合并聊天记录的解析逻辑，支持从转发消息中提取文本内容。
-* 为什么：方便用户直接发送合并聊天记录，让 bot 能够读取并整理上下文。
-* 影响范围：主要影响聊天记录解析模块和消息处理流程。
-* 注意事项：后续需要补充更多真实 QQ 消息格式的测试样例。
+### 当前用户
 
-ci(deploy): add GitHub Actions SSH deployment
+```text
+GET /tools/tongji/me
+uv run tongji tool me
+```
 
-* 做了什么：新增 GitHub Actions 工作流，通过 SSH 登录服务器并自动拉取、构建、重启服务。
-* 为什么：减少手动部署步骤，保证每次推送后都能以一致流程发布。
-* 影响范围：影响部署流程、服务器目录结构和环境变量配置。
-* 注意事项：需要在 GitHub Secrets 中配置服务器地址、用户名、SSH 私钥和部署路径。
+## 错误处理
 
-build(docker): add production Docker setup
+| 错误 | Agent 行为 |
+|---|---|
+| `NO_SESSION` | 提示管理员先执行 `uv run tongji login` |
+| `SESSION_EXPIRED` | 提示登录态失效，需要管理员重新登录 |
+| `UPSTREAM_ERROR` | 简短说明 1 系统暂时不可用，不要高频重试 |
+| `VALIDATION_ERROR` | 检查工具参数，不要靠反复试错猜参数 |
+| 排名 `data: null` | 正常边界情况，说明排名暂不可用 |
+| 课表或排课为空 | 可能处于假期、学期未开始或没有安排 |
 
-* 做了什么：新增 Dockerfile 和 docker-compose.yml，用于容器化运行 QQ Bot。
-* 为什么：方便在服务器上稳定部署，并减少本地环境和服务器环境差异。
-* 影响范围：影响项目启动方式、依赖安装方式和生产环境运行流程。
-* 注意事项：部署前需要确认 .env 文件和挂载目录配置正确。
+普通聊天用户不应触发 `/admin/*`，也不应看到内部 Cookie 或上游错误正文。
+
+## 项目边界
+
+- 本项目只提供 API、SDK 和调试 CLI，不包含 Agent Skill。
+- Skill、AstrBot 插件和特定 Agent 提示词应作为独立衍生项目维护。
+- 本项目只实现只读查询，不调用选课写入、管理和其他破坏性接口。

@@ -79,3 +79,19 @@ async def test_week_schedule_resolves_student_and_term_context():
     timetable_call = next(call for call in sdk.calls if call[0] == "timetable_student")
     assert timetable_call[1]["student_id"] == "student-demo"
     assert timetable_call[1]["calendar_id"] == 123
+
+
+async def test_score_rank_resolves_student_and_reports_unavailable():
+    sdk = FakeSdk(
+        {
+            "students_me": {"data": {"list": [{"studentId": "student-demo"}]}},
+            "calendar_current_term": {"data": {"schoolCalendar": {"id": 123}}},
+            "scores_rank": {"data": None},
+        }
+    )
+
+    result = await AgentTools(sdk).score_rank()
+
+    assert result.data is None
+    assert result.meta["available"] is False
+    assert ("scores_rank", {"student_id": "student-demo"}) in sdk.calls

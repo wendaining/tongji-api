@@ -68,13 +68,14 @@ def _parse_date_ms(value: Any) -> str | None:
 
 def _calendar(raw: dict[str, Any]) -> CalendarSummary:
     year_val = raw.get("year") or raw.get("academicYear")
+    academic_year: str | None
     if isinstance(year_val, int):
         academic_year = f"{year_val}-{year_val + 1}"
     else:
         academic_year = str(year_val or "").strip() or None
 
     term_code = raw.get("term")
-    term_name = raw.get("termI18n")
+    term_name: str | None = raw.get("termI18n")
     if not term_name and term_code is not None:
         term_name = f"第{term_code}学期"
     elif not term_name:
@@ -238,9 +239,9 @@ class AgentTools:
     async def notices(
         self,
         *,
-        page: int,
-        page_size: int,
-        keyword: str | None,
+        page: int = 1,
+        page_size: int = 20,
+        keyword: str | None = None,
     ) -> ToolSuccess:
         raw = await self.sdk.call(
             "notices_my",
@@ -274,7 +275,7 @@ class AgentTools:
         term_raw = _current_term_record(await self.sdk.call("calendar_current_term"))
         return _student(student_items[0]), _calendar(term_raw)
 
-    async def courses(self, *, page: int, page_size: int) -> ToolSuccess:
+    async def courses(self, *, page: int = 1, page_size: int = 100) -> ToolSuccess:
         _, term = await self._identity_and_term()
         raw = await self.sdk.call(
             "courses_list",
@@ -327,6 +328,14 @@ class AgentTools:
         student, _ = await self._identity_and_term()
         raw = _data(await self.sdk.call("grades_list", {"student_id": student.student_id}))
         return ToolSuccess(data=raw)
+
+    async def score_rank(self) -> ToolSuccess:
+        student, _ = await self._identity_and_term()
+        raw = _data(await self.sdk.call("scores_rank", {"student_id": student.student_id}))
+        return ToolSuccess(
+            data=raw,
+            meta={"available": raw is not None},
+        )
 
     async def exams(self) -> ToolSuccess:
         items = [_exam(item).model_dump() for item in _items(await self.sdk.call("exams_schedule"))]

@@ -15,6 +15,7 @@ from tongji.core.logging import configure_logging
 from tongji.core.login import LoginResultStatus, ProgrammaticLoginManager
 from tongji.core.session_store import SessionStore
 from tongji.sdk import TongjiClient
+from tongji.tools.service import AgentTools
 
 
 def _print(data: Any) -> None:
@@ -87,6 +88,46 @@ async def _call(module_name: str, data: str) -> None:
         await client.aclose()
 
 
+async def _tool(tool_name: str, data: str) -> None:
+    params = json.loads(data)
+    if not isinstance(params, dict):
+        raise ValueError("--data must be a JSON object")
+    client = _raw_client()
+    try:
+        tools = AgentTools(TongjiClient(client))
+        if tool_name == "me":
+            result = await tools.me()
+        elif tool_name == "current-term":
+            result = await tools.current_term()
+        elif tool_name == "current-week":
+            result = await tools.current_week()
+        elif tool_name == "calendar":
+            result = await tools.calendars()
+        elif tool_name == "notices":
+            result = await tools.notices(**params)
+        elif tool_name == "notice":
+            result = await tools.notice_detail(**params)
+        elif tool_name == "unread-count":
+            result = await tools.unread_count()
+        elif tool_name == "courses":
+            result = await tools.courses(**params)
+        elif tool_name == "schedule-today":
+            result = await tools.schedule(today_only=True)
+        elif tool_name == "schedule-week":
+            result = await tools.schedule(today_only=False)
+        elif tool_name == "grades":
+            result = await tools.grades()
+        elif tool_name == "score-rank":
+            result = await tools.score_rank()
+        elif tool_name == "exams":
+            result = await tools.exams()
+        else:
+            raise ValueError(f"Unknown tool: {tool_name}")
+        _print(result.model_dump(mode="json"))
+    finally:
+        await client.aclose()
+
+
 async def _ping() -> None:
     client = _raw_client()
     try:
@@ -128,6 +169,27 @@ def _parser() -> argparse.ArgumentParser:
     call = subcommands.add_parser("call", help="Call a raw API module")
     call.add_argument("module")
     call.add_argument("--data", default="{}", help="JSON object with module parameters")
+
+    tool = subcommands.add_parser("tool", help="Run one normalized Agent tool")
+    tool.add_argument(
+        "tool",
+        choices=[
+            "me",
+            "current-term",
+            "current-week",
+            "calendar",
+            "notices",
+            "notice",
+            "unread-count",
+            "courses",
+            "schedule-today",
+            "schedule-week",
+            "grades",
+            "score-rank",
+            "exams",
+        ],
+    )
+    tool.add_argument("--data", default="{}", help="JSON object with tool parameters")
     return parser
 
 
@@ -152,6 +214,8 @@ def main() -> None:
             _print(get_registry().metadata())
         elif args.command == "call":
             asyncio.run(_call(args.module, args.data))
+        elif args.command == "tool":
+            asyncio.run(_tool(args.tool, args.data))
     except (AppError, ValueError, json.JSONDecodeError) as exc:
         if isinstance(exc, AppError):
             _print(

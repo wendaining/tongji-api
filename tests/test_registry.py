@@ -38,6 +38,12 @@ def test_openapi_documents_every_raw_module():
     assert len(raw_operations) == 45
 
 
+def test_openapi_exposes_14_agent_tools():
+    paths = create_app().openapi()["paths"]
+    tool_paths = [path for path in paths if path.startswith("/tools/tongji/")]
+    assert len(tool_paths) == 14
+
+
 def test_static_notice_route_precedes_notice_id_route():
     paths = list(create_app().openapi()["paths"])
     assert paths.index("/api/notices/unread-count") < paths.index("/api/notices/{notice_id}")

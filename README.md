@@ -17,7 +17,7 @@ XiaLing 风格 IAM 登录状态机
 - 程序化 IAM 登录、RSA 密码加密和邮箱 MFA
 - 持久化 `JSESSIONID` 与 `sessionid`
 - 45 个 `/api/*` raw module，保留上游响应结构
-- 13 个 `/tools/tongji/*` Agent 工具，使用稳定的 snake_case 字段
+- 14 个 `/tools/tongji/*` Agent 工具，使用稳定的 snake_case 字段
 - Python SDK、HTTP 服务和通用 CLI 共用同一个 module registry
 - FastAPI OpenAPI、Docker 和 GitHub Actions
 
@@ -67,6 +67,8 @@ uv run tongji serve
 ## CLI 和 Python
 
 ```powershell
+uv run tongji tool grades
+uv run tongji tool schedule-week
 uv run tongji modules
 uv run tongji call calendar_current_term
 uv run tongji call notices_list --data '{"page":1,"page_size":5}'
@@ -99,8 +101,9 @@ uv run python scripts/generate_docs.py --check
 uv run python -m build
 ```
 
-接口清单见 [Raw API Reference](docs/api-reference.md)，Agent 规则见
-[Agent Tools](docs/agent-tools.md)。
+Agent 开始任务前应阅读 [AGENTS.md](AGENTS.md)。接口清单见
+[API 文档](docs/api.md)，逆向和开发经验见
+[开发经验沉淀](docs/development.md)。
 
 ## 安全边界
 

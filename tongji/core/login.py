@@ -212,19 +212,6 @@ def _extract_authn_error_tip(auth_data: dict[str, str]) -> str:
     return auth_data.get("authnErrorTip", "").strip()
 
 
-def _extract_aes_url(html: str) -> str:
-    """Ref: XiaLing233 loginout.py — _authn_engine.
-
-    After AuthnEngine redirect lands on 1.tongji.edu.cn, the page contains
-    a <script src="/static/js/app.XXXX.js"> tag that holds AES keys used
-    for attachment download encryption.
-    """
-    for part in html.split(">"):
-        if "/static/js/app." in part:
-            return "https://1.tongji.edu.cn" + part.split("src=")[1].split(">")[0]
-    return ""
-
-
 def _find_ssologin_url(response: httpx.Response, redirect_urls: list[str] | None = None) -> str:
     candidates = [*(redirect_urls or []), str(response.url)]
     for candidate in candidates:
@@ -576,11 +563,6 @@ class ProgrammaticLoginFlow:
             )
 
         ssologin_url = str(response.url)
-        # Also extract AES URL (used later for attachment downloads)
-        aes_url = _extract_aes_url(response.text)
-        if aes_url:
-            self.session_store.set_metadata("aes_url", aes_url)
-
         callback = parse_ssologin_callback_url(ssologin_url)
         sessionid = await self._session_login(callback)
         jsessionid = self._cookie_value("JSESSIONID", domain_contains="1.tongji.edu.cn")

@@ -1,6 +1,35 @@
-# Raw API Reference
+# API 文档
 
-本文件由 `scripts/generate_docs.py` 从 module registry 生成，请勿手工编辑。
+本文件由 `scripts/generate_docs.py` 从 module registry 和 FastAPI 路由生成，请勿手工编辑。
+
+## 入口选择
+
+1. Agent 日常任务优先调用 `/tools/tongji/*`。
+2. 不启动服务时使用一次性的 `tongji tool` 聚合命令。
+3. `/api/*` 与 `tongji call` 仅用于 raw 数据和接口调试。
+
+常驻 HTTP 服务会复用进程、连接池和 session。连续执行多个 `tongji call` 会重复冷启动，不适合 Agent 工作流。
+
+## Agent 工具
+
+| Method | HTTP Route | CLI Tool | Purpose |
+|---|---|---|---|
+
+工具会自动补齐当前学生、当前学期和教学周。完整参数及响应模型以 `/openapi.json` 为准。
+
+### CLI 示例
+
+```bash
+uv run tongji tool notices --data '{"page_size":5}'
+uv run tongji tool notice --data '{"notice_id":"..."}'
+uv run tongji tool schedule-week
+uv run tongji tool grades
+uv run tongji tool score-rank
+```
+
+CLI tool 参数使用 snake_case。每条 `tongji tool` 命令只启动一次 Python。
+
+## Raw API Modules
 
 | Module | Method | Route | Description |
 |---|---|---|---|
@@ -50,4 +79,21 @@
 | `classroom_usage_report` | `GET` | `/api/classroom/usage-report` | 查询教室使用情况 |
 | `culture_strength_class_info` | `GET` | `/api/culture/strength-class-info` | 查询强化班信息 |
 
-所有 raw 路由保留 1 系统原始字段和响应层级。参数定义及响应 schema 以 `/openapi.json` 为准。
+raw 路由保留 1 系统原始字段和响应层级。CLI 调试示例：
+
+```bash
+uv run tongji modules
+uv run tongji call calendar_current_term
+uv run tongji call grades_list --data '{"student_id":"student-demo"}'
+```
+
+## 错误
+
+| Code | Meaning |
+|---|---|
+| `NO_SESSION` | 尚未保存 1 系统登录态 |
+| `SESSION_EXPIRED` | 登录态失效，`action_required=login` |
+| `UPSTREAM_ERROR` | 1 系统超时、不可达或返回 HTTP 错误 |
+| `VALIDATION_ERROR` | module 或 tool 参数不符合模型 |
+
+排名 `data: null`、课表空列表等属于合法业务结果，不属于上述错误。

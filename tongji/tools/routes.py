@@ -141,6 +141,15 @@ async def tool_grades(request: Request) -> ToolSuccess:
 
 
 @router.get(
+    "/scores/rank",
+    response_model=ToolSuccess[Any],
+    summary="查询当前学生成绩排名",
+)
+async def tool_score_rank(request: Request) -> ToolSuccess:
+    return await _tools(request).score_rank()
+
+
+@router.get(
     "/exams",
     response_model=ToolSuccess[list[ExamSummary]],
     summary="查询当前学生考试安排",
