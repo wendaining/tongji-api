@@ -141,3 +141,22 @@ async def culture_label_relation(
         f"/api/cultureservice/bclCourseLabelRelation/list/{scheme_id}",
         params={"type": type_id},
     )
+
+
+# ---------------------------------------------------------------------------
+# Strengthened / advanced class (强化班 / 进阶式)
+# ---------------------------------------------------------------------------
+
+
+async def my_strength_class_info(client: RawOneClient) -> Any:
+    """Query the student's strengthened / advanced class registration status.
+
+    Returns ``{"resultStatus": int}`` where non-zero indicates enrollment.
+
+    Ref: GET /api/cultureservice/ScAdmStuRel/myStrengthClassInfo
+        Scanned from /scStudentRegistration page, 2026-07-09.
+    """
+    return await client.request(
+        "GET",
+        "/api/cultureservice/ScAdmStuRel/myStrengthClassInfo",
+    )

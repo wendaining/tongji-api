@@ -332,9 +332,9 @@ async def cmd_progress_detail(progress_id: str) -> None:
         await client.aclose()
 
 
-async def cmd_scores() -> None:
-    from tongji.core.dict import translate_grade_term, translate_grade_course
-    from tongji.core.services import grades as grades_svc
+async def cmd_scores(tags: bool = False, rank: bool = False, raw: bool = False) -> None:
+    from tongji.core.dict import translate_grade_term, translate_grade_course, translate_course_tag, translate_score_rank
+    from tongji.core.services import grades as grades_svc, major as major_svc
 
     client = _load_client()
     try:
@@ -344,6 +344,27 @@ async def cmd_scores() -> None:
             _print("未找到学生信息。", ok=False)
             return
         sid = students[0].get("studentId", "")
+
+        if rank:
+            result = await major_svc.query_student_score_rank(client, student_id=sid)
+            data = result.get("data") or result
+            if raw:
+                _print(data)
+            else:
+                _print(translate_score_rank(data) if isinstance(data, dict) else data)
+            return
+
+        if tags:
+            result = await grades_svc.query_course_tags(client, student_id=sid)
+            tag_list = (result.get("data") or result) if isinstance(result, dict) else result
+            if isinstance(tag_list, list):
+                if raw:
+                    _print({"count": len(tag_list), "items": tag_list})
+                else:
+                    _print({"count": len(tag_list), "items": [translate_course_tag(t) for t in tag_list]})
+            else:
+                _print(result, ok=False)
+            return
 
         result = await grades_svc.get_my_grades(client, student_id=sid)
         data = result.get("data") or {}
@@ -478,6 +499,46 @@ async def cmd_ping() -> None:
         await client.aclose()
 
 
+async def cmd_stations(raw: bool = False) -> None:
+    """Query province/station (生源地) lookup table."""
+    from tongji.core.dict import translate_station
+
+    client = _load_client()
+    try:
+        result = await student_svc.get_station_info_list(client)
+        data = (result.get("data") or result) if isinstance(result, dict) else result
+        if isinstance(data, list):
+            if raw:
+                _print({"count": len(data), "items": data[:20]})
+            else:
+                _print({"count": len(data), "sample": [translate_station(s) for s in data[:20]]})
+        else:
+            _print(result, ok=False)
+    finally:
+        await client.aclose()
+
+
+async def cmd_classroom(raw: bool = False) -> None:
+    """Query classroom tower (教学楼) list."""
+    from tongji.core.services import classroom as classroom_svc
+    from tongji.core.dict import translate_classroom_tower
+
+    client = _load_client()
+    try:
+        result = await classroom_svc.condition_query_classroom_tower(client)
+        data = (result.get("data") or result) if isinstance(result, dict) else result
+        if isinstance(data, dict):
+            items = data.get("list") or []
+            if raw:
+                _print({"total": data.get("total_"), "items": items})
+            else:
+                _print({"total": data.get("total_"), "items": [translate_classroom_tower(t) for t in items[:20]]})
+        else:
+            _print(result, ok=False)
+    finally:
+        await client.aclose()
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="tongji",
@@ -521,7 +582,10 @@ def main():
     cal_p.add_argument("action", choices=["list", "current-term", "current-week"])
 
     # scores
-    subs.add_parser("scores", help="Course scores / grades")
+    sc_p = subs.add_parser("scores", help="Course scores / grades")
+    sc_p.add_argument("--tags", action="store_true", help="Show course category tags instead of grades")
+    sc_p.add_argument("--rank", action="store_true", help="Show score ranking instead of grades")
+    sc_p.add_argument("--raw", action="store_true", help="Show raw response without translation")
 
     # plan
     subs.add_parser("plan", help="Culture plan / credit stats")
@@ -540,6 +604,14 @@ def main():
     # exams
     ex_p = subs.add_parser("exams", help="Exam schedule (undergraduate)")
     ex_p.add_argument("--raw", action="store_true", help="Show raw response without translation")
+
+    # stations
+    st_p = subs.add_parser("stations", help="Province/station lookup list")
+    st_p.add_argument("--raw", action="store_true", help="Show raw response without translation")
+
+    # classroom
+    cl_p = subs.add_parser("classroom", help="Classroom tower list")
+    cl_p.add_argument("--raw", action="store_true", help="Show raw response without translation")
 
     # tutor-meetings
     tm_p = subs.add_parser("tutor-meetings", help="Freshman tutor meetings")
@@ -601,7 +673,7 @@ def main():
     elif args.command == "calendar":
         asyncio.run(cmd_calendar(args.action))
     elif args.command == "scores":
-        asyncio.run(cmd_scores())
+        asyncio.run(cmd_scores(tags=args.tags, rank=args.rank, raw=args.raw))
     elif args.command == "plan":
         asyncio.run(cmd_plan())
     elif args.command == "plan-detail":
@@ -618,6 +690,10 @@ def main():
         asyncio.run(cmd_teaching_progress(args.calendar, args.keyword, args.page, args.page_size))
     elif args.command == "progress-detail":
         asyncio.run(cmd_progress_detail(args.id))
+    elif args.command == "stations":
+        asyncio.run(cmd_stations(raw=args.raw))
+    elif args.command == "classroom":
+        asyncio.run(cmd_classroom(raw=args.raw))
     elif args.command == "ping":
         asyncio.run(cmd_ping())
     else:

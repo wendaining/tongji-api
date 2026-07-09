@@ -249,6 +249,27 @@ def translate_grade_course(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Course tags (课程标签, from queryCourseTag)
+# Ref: GET /api/scoremanagementservice/studentScoreBk/queryCourseTag
+# ---------------------------------------------------------------------------
+
+COURSE_TAG_FIELDS = [
+    ("id", "标签ID"),
+    ("parentID", "父标签ID"),
+    ("nameCN", "标签名"),
+    ("shortName", "简称"),
+    ("trainingLevel", "培养层次"),
+    ("startYear", "起始年份"),
+    ("endYear", "终止年份"),
+]
+
+
+def translate_course_tag(raw: dict[str, Any]) -> dict[str, Any]:
+    """Translate a course tag / category entry."""
+    return {label: _pick(raw, code) for code, label in COURSE_TAG_FIELDS}
+
+
+# ---------------------------------------------------------------------------
 # Cross-course mutual apply
 # ---------------------------------------------------------------------------
 
@@ -420,6 +441,65 @@ TUTOR_MEETING_FIELDS = [
 def translate_tutor_meeting(raw: dict[str, Any]) -> dict[str, Any]:
     """Translate a single tutor meeting entry."""
     return {label: _pick(raw, code) for code, label in TUTOR_MEETING_FIELDS}
+
+
+# ---------------------------------------------------------------------------
+# Station info (生源地)
+# Ref: POST /api/studentservice/studentDetailInfo/getStationInfoList
+# ---------------------------------------------------------------------------
+
+STATION_INFO_FIELDS = [
+    ("id", "ID"),
+    ("provice", "省份"),
+    ("proviceCode", "省份代码"),
+    ("station", "生源地"),
+    ("keyWord", "关键字"),
+]
+
+
+def translate_station(raw: dict[str, Any]) -> dict[str, Any]:
+    return {label: _pick(raw, code) for code, label in STATION_INFO_FIELDS}
+
+
+# ---------------------------------------------------------------------------
+# Score rank (成绩排名)
+# Ref: GET /api/majorservice/scoreRank/queryStudentScoreRank
+# ---------------------------------------------------------------------------
+
+SCORE_RANK_FIELDS = [
+    ("studentId", "学号"),
+    ("studentName", "姓名"),
+    ("grade", "年级"),
+    ("studentMajor", "专业"),
+    ("score", "绩点"),
+    ("majorStudentCount", "专业人数"),
+    ("majorScoreRank", "专业排名"),
+    ("majorScorePercent", "专业百分比"),
+    ("rankViewStatus", "排名可见"),
+]
+
+
+def translate_score_rank(raw: dict[str, Any]) -> dict[str, Any]:
+    return {label: _pick(raw, code) for code, label in SCORE_RANK_FIELDS}
+
+
+# ---------------------------------------------------------------------------
+# Classroom tower (教学楼)
+# Ref: POST /api/baseresservice/classroomTowerInfo/conditionQueryByDict
+# ---------------------------------------------------------------------------
+
+CLASSROOM_TOWER_FIELDS = [
+    ("id", "ID"),
+    ("code", "代码"),
+    ("name", "名称"),
+    ("nameEn", "英文名"),
+    ("campus", "校区"),
+    ("departmentCode", "学院代码"),
+]
+
+
+def translate_classroom_tower(raw: dict[str, Any]) -> dict[str, Any]:
+    return {label: _pick(raw, code) for code, label in CLASSROOM_TOWER_FIELDS}
 
 
 # ---------------------------------------------------------------------------

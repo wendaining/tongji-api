@@ -13,15 +13,18 @@ from fastapi import FastAPI, Query
 
 from tongji.core.config import get_settings
 from tongji.core.client import RawOneClient
-from tongji.core.dict import translate_calendar, translate_course, translate_credit_stats, translate_dictionary_item, translate_exam_arrange, translate_grade_course, translate_grade_term, translate_major_timetable, translate_mutual_apply, translate_notice, translate_plan_course, translate_progress_detail, translate_teaching_progress, translate_timetable, translate_tutor_meeting
+from tongji.core.dict import translate_calendar, translate_classroom_tower, translate_course, translate_course_tag, translate_credit_stats, translate_dictionary_item, translate_exam_arrange, translate_grade_course, translate_grade_term, translate_major_timetable, translate_mutual_apply, translate_notice, translate_plan_course, translate_progress_detail, translate_score_rank, translate_station, translate_teaching_progress, translate_timetable, translate_tutor_meeting
 from tongji.core.errors import register_error_handlers
 from tongji.core.logging import configure_logging
 from tongji.core.session_store import SessionStore
 from tongji.core.services import (
     calendar as calendar_svc,
+    classroom as classroom_svc,
     courses as courses_svc,
     elections as elections_svc,
     exams as exams_svc,
+    help_center as help_center_svc,
+    major as major_svc,
     notices as notices_svc,
     session as session_svc,
     students as student_svc,
@@ -245,6 +248,20 @@ def create_app() -> FastAPI:
             }
         return result
 
+    @app.get("/grades/tags", tags=["grades"])
+    async def grades_tags(
+        student_id: str = Query(alias="studentId"),
+        translated: bool = Query(default=False),
+    ):
+        """Query the course category tag tree used for grades page filtering."""
+        result = await grades_svc.query_course_tags(_get_client(), student_id=student_id)
+        tag_list = (result.get("data") or result) if isinstance(result, dict) else result
+        if not isinstance(tag_list, list):
+            return result
+        if translated:
+            return {"count": len(tag_list), "items": [translate_course_tag(t) for t in tag_list]}
+        return {"count": len(tag_list), "items": tag_list}
+
     # ------------------------------------------------------------------
     # Exams
     # ------------------------------------------------------------------
@@ -411,6 +428,73 @@ def create_app() -> FastAPI:
     @app.get("/session/me", tags=["session"])
     async def session_user():
         return await session_svc.get_session_user(_get_client())
+
+    # ------------------------------------------------------------------
+    # Student detail extras
+    # ------------------------------------------------------------------
+    @app.get("/students/tabs", tags=["students"])
+    async def student_visible_tabs():
+        return await student_svc.get_visible_tabs(_get_client())
+
+    @app.get("/students/stations", tags=["students"])
+    async def student_stations(translated: bool = Query(default=False)):
+        result = await student_svc.get_station_info_list(_get_client())
+        data = (result.get("data") or result) if isinstance(result, dict) else result
+        if not isinstance(data, list):
+            return result
+        if translated:
+            return {"count": len(data), "items": [translate_station(s) for s in data]}
+        return {"count": len(data), "items": data}
+
+    # ------------------------------------------------------------------
+    # Classroom / campus resources
+    # ------------------------------------------------------------------
+    @app.get("/classroom/towers", tags=["classroom"])
+    async def classroom_towers(translated: bool = Query(default=False)):
+        result = await classroom_svc.condition_query_classroom_tower(_get_client())
+        data = (result.get("data") or result) if isinstance(result, dict) else result
+        if isinstance(data, dict):
+            items = data.get("list") or []
+            if translated:
+                data["list"] = [translate_classroom_tower(t) for t in items]
+            return data
+        return result
+
+    # ------------------------------------------------------------------
+    # Help centre
+    # ------------------------------------------------------------------
+    @app.get("/help/articles", tags=["help"])
+    async def help_articles():
+        return await help_center_svc.list_all_help(_get_client())
+
+    @app.get("/help/groups", tags=["help"])
+    async def help_groups():
+        result = await help_center_svc.find_user_group_list(_get_client())
+        data = (result.get("data") or result) if isinstance(result, dict) else result
+        if isinstance(data, list):
+            return {"count": len(data), "items": data}
+        return result
+
+    # ------------------------------------------------------------------
+    # Score ranking
+    # ------------------------------------------------------------------
+    @app.get("/scores/rank", tags=["grades"])
+    async def scores_rank(
+        student_id: str = Query(alias="studentId"),
+        translated: bool = Query(default=False),
+    ):
+        result = await major_svc.query_student_score_rank(_get_client(), student_id=student_id)
+        if translated:
+            data = result.get("data") or result
+            return translate_score_rank(data) if isinstance(data, dict) else data
+        return result
+
+    # ------------------------------------------------------------------
+    # Culture / strength class
+    # ------------------------------------------------------------------
+    @app.get("/culture/strength-class", tags=["plan"])
+    async def culture_strength_class():
+        return await culture_svc.my_strength_class_info(_get_client())
 
     return app
 

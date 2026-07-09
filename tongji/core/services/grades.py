@@ -20,3 +20,20 @@ async def get_my_grades(client: RawOneClient, *, student_id: str) -> Any:
         "/api/scoremanagementservice/scoreGrades/getMyGrades",
         params={"studentId": student_id},
     )
+
+
+async def query_course_tags(client: RawOneClient, *, student_id: str) -> Any:
+    """Query the course category / tag tree used for filtering on the grades page.
+
+    Returns a flat list of tag nodes with ``id``, ``parentID``, ``nameCN``,
+    ``shortName``, ``trainingLevel`` etc. — constructing a tree is the
+    caller's responsibility.
+
+    Ref: GET /api/scoremanagementservice/studentScoreBk/queryCourseTag?studentId=...
+        Scanned from /oldStysteMyGrades page, 2026-07-09.
+    """
+    return await client.request(
+        "GET",
+        "/api/scoremanagementservice/studentScoreBk/queryCourseTag",
+        params={"studentId": student_id},
+    )

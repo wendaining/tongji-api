@@ -75,3 +75,38 @@ async def find_user_info_by_type(client: RawOneClient, *, user_id: str, type_: s
         "/api/studentservice/studentInfo/findUserInfoByType",
         params={"userId": user_id, "type": type_, "_t": str(int(time.time() * 1000))},
     )
+
+
+# ---------------------------------------------------------------------------
+# Student detail page (/StudentBaseInfo) helpers
+# ---------------------------------------------------------------------------
+
+
+async def get_visible_tabs(client: RawOneClient) -> Any:
+    """Get the list of visible tab names on the student detail page.
+
+    Returns ``{"visibleTabList": [...], "editControlContained": bool}``.
+
+    Ref: GET /api/studentservice/studentDetailInfo/getVisibleTabList
+        Scanned from /StudentBaseInfo page, 2026-07-09.
+    """
+    return await client.request(
+        "GET",
+        "/api/studentservice/studentDetailInfo/getVisibleTabList",
+    )
+
+
+async def get_station_info_list(client: RawOneClient) -> Any:
+    """Query the province / station (生源地) lookup table.
+
+    Returns a flat list of province–station pairs used for form autocomplete
+    on the student detail page. 4816 entries total.
+
+    Ref: POST /api/studentservice/studentDetailInfo/getStationInfoList
+        Scanned from /StudentBaseInfo page, 2026-07-09.
+    """
+    return await client.request(
+        "POST",
+        "/api/studentservice/studentDetailInfo/getStationInfoList",
+        data={},
+    )
