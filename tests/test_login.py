@@ -67,9 +67,7 @@ async def test_programmatic_login_flow_follows_xialing_style_redirect_chain(tmp_
             if request.url.query:
                 return httpx.Response(
                     302,
-                    headers={
-                        "Location": "https://1.tongji.edu.cn/ssologin?token=t1&uid=u1&ts=123"
-                    },
+                    headers={"Location": "https://1.tongji.edu.cn/ssologin?token=t1&uid=u1&ts=123"},
                     request=request,
                 )
             return httpx.Response(
@@ -77,8 +75,7 @@ async def test_programmatic_login_flow_follows_xialing_style_redirect_chain(tmp_
                 headers={
                     "Set-Cookie": "JSESSIONID=one-jsession; Path=/; HttpOnly",
                     "Location": (
-                        "https://iam.tongji.edu.cn/idp/authcenter/"
-                        "ActionAuthChain?authnLcKey=lc-key"
+                        "https://iam.tongji.edu.cn/idp/authcenter/ActionAuthChain?authnLcKey=lc-key"
                     ),
                 },
                 request=request,
@@ -174,9 +171,7 @@ async def test_programmatic_login_manager_supports_manual_email_mfa(tmp_path):
             if request.url.query:
                 return httpx.Response(
                     302,
-                    headers={
-                        "Location": "https://1.tongji.edu.cn/ssologin?token=t1&uid=u1&ts=123"
-                    },
+                    headers={"Location": "https://1.tongji.edu.cn/ssologin?token=t1&uid=u1&ts=123"},
                     request=request,
                 )
             return httpx.Response(
@@ -184,8 +179,7 @@ async def test_programmatic_login_manager_supports_manual_email_mfa(tmp_path):
                 headers={
                     "Set-Cookie": "JSESSIONID=one-jsession; Path=/; HttpOnly",
                     "Location": (
-                        "https://iam.tongji.edu.cn/idp/authcenter/"
-                        "ActionAuthChain?authnLcKey=lc-key"
+                        "https://iam.tongji.edu.cn/idp/authcenter/ActionAuthChain?authnLcKey=lc-key"
                     ),
                 },
                 request=request,

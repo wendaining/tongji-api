@@ -1,0 +1,18 @@
+services:
+  tongji-api:
+    build: .
+    image: one-dot-tongji-api:local
+    env_file:
+      - .env
+    environment:
+      TJ_HOST: 0.0.0.0
+      TJ_PORT: 8000
+      TJ_SESSION_STORE_PATH: /app/data/session.json
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - tongji_session:/app/data
+    restart: unless-stopped
+
+volumes:
+  tongji_session:

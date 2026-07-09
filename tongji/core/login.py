@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
-import re
 import secrets
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -11,14 +10,14 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from http.cookiejar import Cookie
 from typing import Any
-from urllib.parse import parse_qs, urlencode, urljoin, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
 from Crypto.Cipher import PKCS1_v1_5
 from Crypto.PublicKey import RSA
 
 from tongji.core.errors import AppError, UpstreamError
-from tongji.core.imap import ImapConfig, wait_for_code, fetch_latest_code
+from tongji.core.imap import ImapConfig, wait_for_code
 from tongji.core.session_store import SessionStore
 
 # ---------------------------------------------------------------------------
@@ -110,9 +109,12 @@ async def _get_rsa_public_key(js_url: str, rsa_client: httpx.AsyncClient) -> str
     Iterate lines, skip comments (//), take the FIRST uncommented
     encrypt.setPublicKey call.
     """
-    response = await rsa_client.get(js_url, headers={
-        "User-Agent": BROWSER_USER_AGENT,
-    })
+    response = await rsa_client.get(
+        js_url,
+        headers={
+            "User-Agent": BROWSER_USER_AGENT,
+        },
+    )
     if response.status_code >= 400:
         raise UpstreamError(
             "无法获取 IAM RSA 公钥脚本。",
@@ -243,12 +245,14 @@ def _extract_sessionid_from_json(data: Any) -> str | None:
     ]
     nested = data.get("data")
     if isinstance(nested, dict):
-        candidates.extend([
-            nested.get("sessionid"),
-            nested.get("sessionId"),
-            nested.get("xToken"),
-            nested.get("token"),
-        ])
+        candidates.extend(
+            [
+                nested.get("sessionid"),
+                nested.get("sessionId"),
+                nested.get("xToken"),
+                nested.get("token"),
+            ]
+        )
     for candidate in candidates:
         if isinstance(candidate, str) and candidate.strip():
             return candidate.strip()
@@ -616,11 +620,13 @@ class ProgrammaticLoginFlow:
 
     async def _session_login(self, callback: SsoLoginCallback) -> str:
         """Ref: XiaLing233 loginout.py — _session_login."""
-        data = urlencode({
-            "token": callback.token,
-            "uid": callback.uid,
-            "ts": callback.ts,
-        })
+        data = urlencode(
+            {
+                "token": callback.token,
+                "uid": callback.uid,
+                "ts": callback.ts,
+            }
+        )
 
         response = await self.client.post(
             f"{self.one_base_url}/api/sessionservice/session/login",
@@ -766,6 +772,35 @@ class ProgrammaticLoginManager:
         self._pending.clear()
         for flow, _ in pending:
             await flow.aclose()
+
+    async def logout(self) -> None:
+        """Log out the stored raw-one session, then remove local credentials."""
+        record = self.session_store.read()
+        if record is None:
+            return
+        headers = {
+            "User-Agent": BROWSER_USER_AGENT,
+            "Accept": "application/json, text/plain, */*",
+            "Content-Type": "application/json",
+            "X-Token": record.sessionid,
+            "Cookie": self.session_store.get_cookie_header() or "",
+        }
+        payload = json.dumps(
+            {"sessionid": record.sessionid, "uid": self.username or ""},
+            separators=(",", ":"),
+        )
+        try:
+            async with httpx.AsyncClient(
+                base_url=self.one_base_url,
+                timeout=self.timeout_seconds,
+            ) as client:
+                await client.post(
+                    "/api/sessionservice/session/logout",
+                    content=payload,
+                    headers=headers,
+                )
+        finally:
+            self.session_store.clear()
 
     async def pending_status(self, login_id: str) -> dict[str, Any]:
         await self._cleanup_expired()

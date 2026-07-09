@@ -61,20 +61,14 @@ class RawOneClient:
         *,
         params: Mapping[str, Any] | None = None,
         data: Mapping[str, Any] | None = None,
-        json_body: Any | None = None,
         require_session: bool = True,
     ) -> Any:
-        """Send a request to 1.tongji.edu.cn.
-
-        Prefer ``data`` (form-encoded, xialing-style) over ``json_body``
-        (JSON) when the reference implementation uses form data.
-        """
+        """Send a raw-one request using query parameters or form data."""
         response = await self._send(
             method,
             path,
             params=params,
             data=data,
-            json_body=json_body,
             require_session=require_session,
         )
         return self._parse_response(response)
@@ -86,7 +80,6 @@ class RawOneClient:
         *,
         params: Mapping[str, Any] | None,
         data: Mapping[str, Any] | None,
-        json_body: Any | None,
         require_session: bool,
     ) -> httpx.Response:
         headers = dict(REQUEST_HEADERS)
@@ -101,7 +94,7 @@ class RawOneClient:
 
         # Ref: XiaLing233 uses urlencode() for form posts — set the matching
         # Content-Type only when sending form data.
-        if data is not None and json_body is None:
+        if data is not None:
             headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
 
         try:
@@ -110,7 +103,6 @@ class RawOneClient:
                 path,
                 params=params,
                 data=data,
-                json=json_body,
                 headers=headers,
             )
         except httpx.TimeoutException as exc:
@@ -121,6 +113,7 @@ class RawOneClient:
     def _parse_response(self, response: httpx.Response) -> Any:
         data = self._decode_body(response)
         if self._is_session_expired(response, data):
+            self.session_store.mark_invalid()
             raise SessionExpiredError()
         if response.status_code >= 400:
             raise UpstreamError(

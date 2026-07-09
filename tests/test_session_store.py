@@ -22,6 +22,7 @@ def test_session_store_save_read_status_and_clear(tmp_path):
     status = store.public_status()
     assert status["has_session"] is True
     assert status["has_jsession"] is True
+    assert status["is_valid"] is True
     assert "sessionid" not in status
     assert status["source"] == "manual"
 
@@ -34,7 +35,23 @@ def test_session_store_save_read_status_and_clear(tmp_path):
         "created_at": None,
         "updated_at": None,
         "last_validated_at": None,
+        "invalidated_at": None,
+        "is_valid": False,
     }
+
+
+def test_session_store_can_mark_session_invalid(tmp_path):
+    store = SessionStore(tmp_path / "session.json")
+    store.save("session-value", source="test", jsessionid="jsession-value")
+
+    record = store.mark_invalid()
+
+    assert record is not None
+    assert record.invalidated_at is not None
+    assert store.public_status()["is_valid"] is False
+
+    store.save("new-session", source="login", jsessionid="new-jsession")
+    assert store.public_status()["is_valid"] is True
 
 
 def test_session_store_imports_initial_sessionid_when_empty(tmp_path):

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "one-dot-tongji-api"
-version = "0.1.0"
+version = "0.2.0"
 description = "Raw 1.tongji.edu.cn API tool service for AstrBot and agents."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -18,6 +18,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "build>=1.2,<2.0",
+  "mypy>=1.14,<2.0",
   "pytest>=8,<9",
   "pytest-asyncio>=0.23,<1.0",
   "ruff>=0.8,<1.0",
@@ -29,6 +31,9 @@ tongji = "tongji.cli:main"
 [tool.setuptools.packages.find]
 include = ["tongji*"]
 
+[tool.setuptools.package-data]
+tongji = ["py.typed"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
@@ -39,3 +44,11 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+exclude = ["tests"]

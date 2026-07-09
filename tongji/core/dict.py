@@ -564,6 +564,7 @@ def translate_apply_status(raw: dict[str, Any]) -> dict[str, Any]:
 # Generic helper
 # ---------------------------------------------------------------------------
 
+
 def pick_i18n(raw: dict[str, Any], *keys: str) -> dict[str, str]:
     """Pick the I18n version of each key from *raw*, falling back to raw code.
 

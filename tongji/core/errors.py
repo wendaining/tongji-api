@@ -16,6 +16,7 @@ class AppError(Exception):
     message: str
     status_code: int = status.HTTP_400_BAD_REQUEST
     details: dict[str, Any] | None = None
+    action_required: str | None = None
 
 
 class AuthNotConfiguredError(AppError):
@@ -51,6 +52,7 @@ class SessionExpiredError(AppError):
             code="SESSION_EXPIRED",
             message="1 系统登录态已失效，请重新登录 1 系统后更新 sessionid。",
             status_code=status.HTTP_401_UNAUTHORIZED,
+            action_required="login",
         )
 
 
@@ -80,6 +82,8 @@ def error_payload(error: AppError) -> dict[str, Any]:
     }
     if error.details:
         payload["error"]["details"] = error.details
+    if error.action_required:
+        payload["error"]["action_required"] = error.action_required
     return payload
 
 

@@ -1,700 +1,174 @@
-"""CLI entry point for tongji — run with ``python -m tongji <command>``.
-
-Architecture mirrors `neteasecloudmusicapienhanced/api-enhanced`:
-core/ is shared between CLI and HTTP server; this file is the thin CLI shell.
-"""
+"""Small CLI over the same registry used by the HTTP server."""
 
 from __future__ import annotations
 
 import argparse
 import asyncio
 import json
-import sys
+from typing import Any
 
-from tongji.core.config import get_settings
 from tongji.core.client import RawOneClient
+from tongji.core.config import get_settings
+from tongji.core.errors import AppError
+from tongji.core.imap import ImapConfig
 from tongji.core.logging import configure_logging
+from tongji.core.login import LoginResultStatus, ProgrammaticLoginManager
 from tongji.core.session_store import SessionStore
-from tongji.core.services import (
-    calendar as calendar_svc,
-    courses as courses_svc,
-    elections as elections_svc,
-    exams as exams_svc,
-    notices as notices_svc,
-    session as session_svc,
-    students as student_svc,
-    teaching_progress as tp_svc,
-    timetable as timetable_svc,
-)
+from tongji.sdk import TongjiClient
 
 
-def _print(data, *, ok=True):
-    """Print JSON output for CLI."""
-    payload = data if ok else {"ok": False, "error": str(data)}
-    print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
+def _print(data: Any) -> None:
+    print(json.dumps(data, ensure_ascii=False, indent=2, default=str))
 
 
-def _load_client() -> RawOneClient:
+def _session_store() -> SessionStore:
     settings = get_settings()
-    store = SessionStore(
+    return SessionStore(
         settings.session_store_path,
         initial_sessionid=settings.sessionid,
         initial_jsessionid=settings.jsessionid,
     )
+
+
+def _raw_client() -> RawOneClient:
+    settings = get_settings()
     return RawOneClient(
         base_url=settings.normalized_one_base_url,
         timeout_seconds=settings.request_timeout_seconds,
-        session_store=store,
+        session_store=_session_store(),
     )
 
 
-async def cmd_login() -> None:
-    """Programmatic login with IMAP auto-fetch for MFA."""
-    from tongji.core.imap import ImapConfig
-    from tongji.core.login import LoginResultStatus, ProgrammaticLoginManager
-
+def _imap_config() -> ImapConfig | None:
     settings = get_settings()
-    store = SessionStore(
-        settings.session_store_path,
-        initial_sessionid=settings.sessionid,
-        initial_jsessionid=settings.jsessionid,
+    if not settings.imap_email or not settings.imap_grantcode:
+        return None
+    return ImapConfig(
+        email=settings.imap_email,
+        grant_code=settings.imap_grantcode,
+        server=settings.imap_server,
+        port=settings.imap_port,
     )
 
-    imap_config = None
-    if settings.imap_email and settings.imap_grantcode:
-        imap_config = ImapConfig(
-            email=settings.imap_email,
-            grant_code=settings.imap_grantcode,
-            server=settings.imap_server,
-            port=settings.imap_port,
-        )
 
+async def _login() -> None:
+    settings = get_settings()
     manager = ProgrammaticLoginManager(
         username=settings.iam_username,
         password=settings.iam_password,
         one_base_url=settings.normalized_one_base_url,
         timeout_seconds=settings.request_timeout_seconds,
-        session_store=store,
-        imap_config=imap_config,
+        session_store=_session_store(),
+        imap_config=_imap_config(),
         pending_ttl_seconds=settings.login_expires_seconds,
     )
-
     try:
         result = await manager.start_login()
-        if result.status == LoginResultStatus.SUCCESS:
-            _print({"status": "SUCCESS", "session": result.session_status})
-        else:
-            _print({
-                "status": "MFA_REQUIRED",
-                "login_id": result.login_id,
-                "hint": "Run: python -m tongji login --mfa <code> --id <login_id>",
-            })
+        if result.status == LoginResultStatus.MFA_REQUIRED:
+            code = input("IAM 邮箱验证码: ").strip()
+            result = await manager.submit_mfa_code(
+                login_id=result.login_id or "",
+                code=code,
+            )
+        _print({"status": result.status.value, "session": result.session_status})
     finally:
         await manager.aclose()
 
 
-async def cmd_login_mfa(login_id: str, code: str) -> None:
-    from tongji.core.imap import ImapConfig
-    from tongji.core.login import ProgrammaticLoginManager
+async def _call(module_name: str, data: str) -> None:
+    params = json.loads(data)
+    if not isinstance(params, dict):
+        raise ValueError("--data must be a JSON object")
+    client = _raw_client()
+    try:
+        sdk = TongjiClient(client)
+        _print(await sdk.call(module_name, params))
+    finally:
+        await client.aclose()
 
+
+async def _ping() -> None:
+    client = _raw_client()
+    try:
+        sdk = TongjiClient(client)
+        _print(await sdk.call("session_ping"))
+    finally:
+        await client.aclose()
+
+
+async def _logout() -> None:
     settings = get_settings()
-    store = SessionStore(
-        settings.session_store_path,
-        initial_sessionid=settings.sessionid,
-        initial_jsessionid=settings.jsessionid,
-    )
-    imap_config = None
-    if settings.imap_email and settings.imap_grantcode:
-        imap_config = ImapConfig(
-            email=settings.imap_email,
-            grant_code=settings.imap_grantcode,
-            server=settings.imap_server,
-            port=settings.imap_port,
-        )
-
     manager = ProgrammaticLoginManager(
         username=settings.iam_username,
         password=settings.iam_password,
         one_base_url=settings.normalized_one_base_url,
         timeout_seconds=settings.request_timeout_seconds,
-        session_store=store,
-        imap_config=imap_config,
-        pending_ttl_seconds=settings.login_expires_seconds,
+        session_store=_session_store(),
     )
     try:
-        result = await manager.submit_mfa_code(login_id=login_id, code=code)
-        _print({"status": "SUCCESS", "session": result.session_status})
+        await manager.logout()
+        _print({"ok": True, "session": _session_store().public_status()})
     finally:
         await manager.aclose()
 
 
-async def cmd_me() -> None:
-    from tongji.core.dict import translate_student
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="tongji")
+    subcommands = parser.add_subparsers(dest="command", required=True)
 
-    client = _load_client()
-    try:
-        result = await student_svc.student_info_list(client, page=1, page_size=1)
-        students = (result.get("data") or {}).get("list", [])
-        if students:
-            _print(translate_student(students[0]))
-        else:
-            _print("未找到学生信息。", ok=False)
-    finally:
-        await client.aclose()
+    serve = subcommands.add_parser("serve", help="Start the HTTP API server")
+    serve.add_argument("--host")
+    serve.add_argument("--port", type=int)
 
+    subcommands.add_parser("login", help="Login through Tongji IAM")
+    subcommands.add_parser("logout", help="Log out and clear the stored session")
+    subcommands.add_parser("ping", help="Check the stored 1.tongji.edu.cn session")
+    subcommands.add_parser("modules", help="List available raw API modules")
 
-async def cmd_notices(page: int, page_size: int, keyword: str | None) -> None:
-    from tongji.core.dict import translate_notice
+    call = subcommands.add_parser("call", help="Call a raw API module")
+    call.add_argument("module")
+    call.add_argument("--data", default="{}", help="JSON object with module parameters")
+    return parser
 
-    client = _load_client()
-    try:
-        result = await notices_svc.list_notices(client, page=page, page_size=page_size, keyword=keyword)
-        data = (result.get("data") or {})
-        raw_list = data.get("list") or []
-        translated = [translate_notice(n) for n in raw_list]
-        _print({"total": data.get("total_"), "page": data.get("pageNum_"), "items": translated})
-    finally:
-        await client.aclose()
 
-
-async def cmd_notice_detail(notice_id: str) -> None:
-    from tongji.core.dict import translate_notice
-
-    client = _load_client()
-    try:
-        result = await notices_svc.notice_detail(client, notice_id)
-        raw = (result.get("data") or result)
-        _print(translate_notice(raw))
-    finally:
-        await client.aclose()
-
-
-async def cmd_courses(calendar: int | None, page: int, page_size: int) -> None:
-    from tongji.core.dict import translate_course
-
-    client = _load_client()
-    try:
-        result = await courses_svc.query_courses(
-            client,
-            calendar=calendar,
-            campus="",
-            college="",
-            course="",
-            training_level="",
-            page=page,
-            page_size=page_size,
-        )
-        data = result.get("data") or {}
-        translated = [translate_course(r) for r in (data.get("rows") or [])]
-        _print({"total": data.get("total_"), "page": data.get("pageNum_"), "items": translated})
-    finally:
-        await client.aclose()
-
-
-async def cmd_cross_courses(
-    student_id: str,
-    calendar_id: int,
-    page: int,
-    page_size: int,
-) -> None:
-    from tongji.core.dict import translate_mutual_apply
-
-    client = _load_client()
-    try:
-        result = await elections_svc.mutual_apply_page(
-            client,
-            calendar_id=calendar_id,
-            student_id=student_id,
-            page=page,
-            page_size=page_size,
-        )
-        data = result.get("data") or {}
-        raw_list = data.get("list") or []
-        translated = [translate_mutual_apply(r) for r in raw_list]
-        _print({"total": data.get("total_"), "page": data.get("pageNum_"), "items": translated})
-    finally:
-        await client.aclose()
-
-
-async def cmd_timetable(calendar: int | None) -> None:
-    from tongji.core.dict import translate_timetable
-    from tongji.core.services import timetable as tt_svc
-
-    settings = get_settings()
-    client = _load_client()
-    try:
-        stu_result = await student_svc.student_info_list(client, page=1, page_size=1)
-        students = (stu_result.get("data") or {}).get("list", [])
-        if not students:
-            _print("无法获取学生信息。", ok=False)
-            return
-        s = students[0]
-        sid = s.get("studentId", "")
-        campus = str(s.get("campus", ""))
-        cal = calendar or 121  # default to current term
-
-        result = await tt_svc.student_timetable(client, student_id=sid, calendar_id=cal, campus=campus)
-        raw_list = (result.get("data") or [])
-        translated = [translate_timetable(r) for r in raw_list]
-        _print({"calendar": cal, "count": len(translated), "items": translated})
-    finally:
-        await client.aclose()
-
-
-async def cmd_major_timetable(code: str, grade: str, calendar_id: int) -> None:
-    """Query major (专业) timetable."""
-    from tongji.core.dict import translate_major_timetable
-    from tongji.core.services import elections as elections_svc
-    from tongji.core.services import timetable as tt_svc
-
-    client = _load_client()
-    try:
-        await exams_svc.current_auth_id(client, auth_id=9093)
-        await session_svc.set_language(client)
-        result = await tt_svc.major_timetable(
-            client, code=code, grade=grade, calendar_id=calendar_id,
-        )
-        raw_list = (result.get('data') or [])
-        translated = [translate_major_timetable(r) for r in raw_list]
-        _print({"calendar": calendar_id, "count": len(translated), "items": translated})
-    finally:
-        await client.aclose()
-
-
-async def cmd_exams(raw: bool = False) -> None:
-    """Query undergraduate exam schedule (including placement tests)."""
-    from tongji.core.dict import translate_exam_arrange
-
-    client = _load_client()
-    try:
-        await exams_svc.current_auth_id(client, auth_id=9102)
-        await session_svc.set_language(client)
-        result = await exams_svc.get_exam_schedule(client)
-        exam_list = (result.get("data") or result) if isinstance(result, dict) else result
-
-        if isinstance(exam_list, list):
-            if raw:
-                _print({"count": len(exam_list), "items": exam_list})
-            else:
-                translated = [translate_exam_arrange(e) for e in exam_list]
-                _print({"count": len(translated), "items": translated})
-        else:
-            _print(result, ok=False)
-    finally:
-        await client.aclose()
-
-
-async def cmd_tutor_meetings(search_text: str, page: int, page_size: int) -> None:
-    """Query freshman tutor meetings."""
-    from tongji.core.services import tutor_meetings as tutor_svc
-
-    client = _load_client()
-    try:
-        await exams_svc.current_auth_id(client, auth_id=13087)
-        await session_svc.set_language(client)
-        result = await tutor_svc.query_by_page(
-            client, search_type="2", search_text=search_text, page=page, page_size=page_size,
-        )
-        _print(result.get("data") or result)
-    finally:
-        await client.aclose()
-
-
-async def cmd_teaching_progress(calendar_id: int | None, keyword: str, page: int, page_size: int) -> None:
-    """Query teaching progress list."""
-    from tongji.core.dict import translate_teaching_progress
-
-    client = _load_client()
-    try:
-        result = await tp_svc.progress_query(
-            client, calendar_id=calendar_id, keyword=keyword, page=page, page_size=page_size,
-        )
-        data = result.get("data") or {}
-        raw_list = data.get("list") or []
-        translated = [translate_teaching_progress(r) for r in raw_list]
-        _print({"total": data.get("total_"), "page": data.get("pageNum_"), "items": translated})
-    finally:
-        await client.aclose()
-
-
-async def cmd_progress_detail(progress_id: str) -> None:
-    """Query teaching progress detail."""
-    from tongji.core.dict import translate_progress_detail
-
-    client = _load_client()
-    try:
-        result = await tp_svc.get_progress_detail(client, id=progress_id)
-        data = result.get("data") or {}
-        raw_list = data.get("list") or []
-        translated = [translate_progress_detail(r) for r in raw_list]
-        _print({"total": data.get("total_"), "page": data.get("pageNum_"), "items": translated})
-    finally:
-        await client.aclose()
-
-
-async def cmd_scores(tags: bool = False, rank: bool = False, raw: bool = False) -> None:
-    from tongji.core.dict import translate_grade_term, translate_grade_course, translate_course_tag, translate_score_rank
-    from tongji.core.services import grades as grades_svc, major as major_svc
-
-    client = _load_client()
-    try:
-        stu_result = await student_svc.student_info_list(client, page=1, page_size=1)
-        students = (stu_result.get("data") or {}).get("list", [])
-        if not students:
-            _print("未找到学生信息。", ok=False)
-            return
-        sid = students[0].get("studentId", "")
-
-        if rank:
-            result = await major_svc.query_student_score_rank(client, student_id=sid)
-            data = result.get("data") or result
-            if raw:
-                _print(data)
-            else:
-                _print(translate_score_rank(data) if isinstance(data, dict) else data)
-            return
-
-        if tags:
-            result = await grades_svc.query_course_tags(client, student_id=sid)
-            tag_list = (result.get("data") or result) if isinstance(result, dict) else result
-            if isinstance(tag_list, list):
-                if raw:
-                    _print({"count": len(tag_list), "items": tag_list})
-                else:
-                    _print({"count": len(tag_list), "items": [translate_course_tag(t) for t in tag_list]})
-            else:
-                _print(result, ok=False)
-            return
-
-        result = await grades_svc.get_my_grades(client, student_id=sid)
-        data = result.get("data") or {}
-
-        terms = []
-        for t in (data.get("term") or []):
-            terms.append({
-                **translate_grade_term(t),
-                "课程": [translate_grade_course(c) for c in (t.get("creditInfo") or [])],
-            })
-
-        _print({
-            "学号": sid,
-            "总绩点": data.get("totalGradePoint"),
-            "总学分": data.get("actualCredit"),
-            "挂科学分": data.get("failingCredits"),
-            "挂科数": data.get("failingCourseCount"),
-            "学期": terms,
-        })
-    finally:
-        await client.aclose()
-
-
-async def cmd_plan() -> None:
-    from tongji.core.dict import translate_credit_stats, translate_plan_course
-    from tongji.core.services import culture as culture_svc
-
-    client = _load_client()
-    try:
-        stu_result = await student_svc.student_info_list(client, page=1, page_size=1)
-        students = (stu_result.get("data") or {}).get("list", [])
-        if not students:
-            _print("无法获取学生信息。", ok=False)
-            return
-        sid = students[0].get("studentId", "")
-
-        # Credit stats
-        credit_raw = await culture_svc.stats_credit(client, student_id=sid)
-        credits = translate_credit_stats(credit_raw.get("data") or {})
-
-        # Plan course tabs
-        plan_raw = await culture_svc.plan_course_tab(client, student_id=sid)
-        plan_courses = [translate_plan_course(c) for c in (plan_raw.get("data") or [])]
-
-        _print({"学号": sid, "学分概况": credits, "课程模块": plan_courses})
-    finally:
-        await client.aclose()
-
-
-async def cmd_plan_detail() -> None:
-    """Fetch detailed culture scheme info from myBclCultureScheme page."""
-    from tongji.core.services import culture as culture_svc
-
-    client = _load_client()
-    try:
-        stu_result = await student_svc.student_info_list(client, page=1, page_size=1)
-        students = (stu_result.get("data") or {}).get("list", [])
-        if not students:
-            _print("无法获取学生信息。", ok=False)
-            return
-        sid = students[0].get("studentId", "")
-
-        # 1. Query student culture scheme association
-        scheme_rel = await culture_svc.student_culture_scheme(client, student_id=sid)
-        scheme_data = scheme_rel.get("data")
-        if not scheme_data:
-            _print({"error": "未找到培养方案关联", "raw": scheme_rel.get("msg", "")}, ok=False)
-            return
-
-        scheme_id = None
-        if isinstance(scheme_data, list) and scheme_data:
-            scheme_id = scheme_data[0].get("cultureSchemeId") or scheme_data[0].get("id")
-        elif isinstance(scheme_data, dict):
-            scheme_id = scheme_data.get("cultureSchemeId") or scheme_data.get("id")
-
-        if not scheme_id:
-            _print({"error": "无法提取培养方案 ID", "data": scheme_data})
-            return
-
-        # 2. Fetch scheme detail
-        scheme = await culture_svc.culture_scheme_by_id(client, scheme_id=scheme_id)
-
-        # 3. Fetch scheme detail/template list
-        detail = await culture_svc.culture_scheme_detail_list(client, culture_id=scheme_id)
-
-        # 4. Fetch school terms for this scheme
-        terms = await culture_svc.culture_scheme_terms(client, scheme_id=scheme_id)
-
-        # 5. Fetch course labels
-        labels = await culture_svc.culture_label_list(client, scheme_id=scheme_id)
-
-        _print({
-            "培养方案ID": scheme_id,
-            "方案信息": scheme.get("data") or scheme,
-            "模板明细": detail.get("data") or detail,
-            "学期": terms.get("data") or terms,
-            "课程标签数": len(labels.get("data") or []),
-        })
-    finally:
-        await client.aclose()
-
-
-async def cmd_calendar(action: str) -> None:
-    from tongji.core.dict import translate_calendar
-
-    client = _load_client()
-    try:
-        if action == "list":
-            result = await calendar_svc.list_calendars(client)
-            raw_list = (result.get("data") or [])
-            _print({"items": [translate_calendar(c) for c in raw_list]})
-        elif action == "current-term":
-            result = await calendar_svc.current_term(client)
-            cal = (result.get("data") or {}).get("schoolCalendar") or {}
-            _print(translate_calendar(cal))
-        elif action == "current-week":
-            result = await calendar_svc.current_week(client)
-            _print(result)
-        else:
-            _print(f"Unknown calendar action: {action}", ok=False)
-            return
-    finally:
-        await client.aclose()
-
-
-async def cmd_ping() -> None:
-    client = _load_client()
-    try:
-        result = await session_svc.ping(client)
-        _print(result)
-    finally:
-        await client.aclose()
-
-
-async def cmd_stations(raw: bool = False) -> None:
-    """Query province/station (生源地) lookup table."""
-    from tongji.core.dict import translate_station
-
-    client = _load_client()
-    try:
-        result = await student_svc.get_station_info_list(client)
-        data = (result.get("data") or result) if isinstance(result, dict) else result
-        if isinstance(data, list):
-            if raw:
-                _print({"count": len(data), "items": data[:20]})
-            else:
-                _print({"count": len(data), "sample": [translate_station(s) for s in data[:20]]})
-        else:
-            _print(result, ok=False)
-    finally:
-        await client.aclose()
-
-
-async def cmd_classroom(raw: bool = False) -> None:
-    """Query classroom tower (教学楼) list."""
-    from tongji.core.services import classroom as classroom_svc
-    from tongji.core.dict import translate_classroom_tower
-
-    client = _load_client()
-    try:
-        result = await classroom_svc.condition_query_classroom_tower(client)
-        data = (result.get("data") or result) if isinstance(result, dict) else result
-        if isinstance(data, dict):
-            items = data.get("list") or []
-            if raw:
-                _print({"total": data.get("total_"), "items": items})
-            else:
-                _print({"total": data.get("total_"), "items": [translate_classroom_tower(t) for t in items[:20]]})
-        else:
-            _print(result, ok=False)
-    finally:
-        await client.aclose()
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        prog="tongji",
-        description="1.tongji.edu.cn CLI toolkit for AstrBot and agents.",
-    )
-    subs = parser.add_subparsers(dest="command")
-
-    # login
-    login_p = subs.add_parser("login", help="Login to 1.tongji.edu.cn (IAM + MFA)")
-    login_p.add_argument("--mfa", metavar="CODE", help="MFA verification code")
-    login_p.add_argument("--id", metavar="LOGIN_ID", help="Login ID from prior MFA_REQUIRED response")
-
-    # me
-    subs.add_parser("me", help="Get current student info")
-
-    # notices
-    n_p = subs.add_parser("notices", help="List notices")
-    n_p.add_argument("--page", type=int, default=1)
-    n_p.add_argument("--page-size", type=int, default=10)
-    n_p.add_argument("--keyword")
-
-    # notice detail
-    nd_p = subs.add_parser("notice", help="Get notice detail")
-    nd_p.add_argument("id", help="Notice ID")
-
-    # courses
-    c_p = subs.add_parser("courses", help="Query courses")
-    c_p.add_argument("--calendar", type=int, default=None)
-    c_p.add_argument("--page", type=int, default=1)
-    c_p.add_argument("--page-size", type=int, default=20)
-
-    # cross-courses
-    cc_p = subs.add_parser("cross-courses", help="Query cross-disciplinary course applications")
-    cc_p.add_argument("--student-id", required=True, help="Student ID")
-    cc_p.add_argument("--calendar", type=int, required=True, help="Calendar/term ID")
-    cc_p.add_argument("--page", type=int, default=1)
-    cc_p.add_argument("--page-size", type=int, default=20)
-
-    # calendar
-    cal_p = subs.add_parser("calendar", help="Calendar operations")
-    cal_p.add_argument("action", choices=["list", "current-term", "current-week"])
-
-    # scores
-    sc_p = subs.add_parser("scores", help="Course scores / grades")
-    sc_p.add_argument("--tags", action="store_true", help="Show course category tags instead of grades")
-    sc_p.add_argument("--rank", action="store_true", help="Show score ranking instead of grades")
-    sc_p.add_argument("--raw", action="store_true", help="Show raw response without translation")
-
-    # plan
-    subs.add_parser("plan", help="Culture plan / credit stats")
-    subs.add_parser("plan-detail", help="Culture plan detail (scheme, terms, labels)")
-
-    # timetable
-    tt_p = subs.add_parser("timetable", help="Student course timetable")
-    tt_p.add_argument("--calendar", type=int, default=None)
-
-    # major-timetable
-    mt_p = subs.add_parser("major-timetable", help="Major (专业) course timetable")
-    mt_p.add_argument("--code", required=True, help="Major code, e.g. 42014")
-    mt_p.add_argument("--grade", required=True, help="Grade year, e.g. 2024")
-    mt_p.add_argument("--calendar", type=int, required=True, help="Calendar ID, e.g. 122")
-
-    # exams
-    ex_p = subs.add_parser("exams", help="Exam schedule (undergraduate)")
-    ex_p.add_argument("--raw", action="store_true", help="Show raw response without translation")
-
-    # stations
-    st_p = subs.add_parser("stations", help="Province/station lookup list")
-    st_p.add_argument("--raw", action="store_true", help="Show raw response without translation")
-
-    # classroom
-    cl_p = subs.add_parser("classroom", help="Classroom tower list")
-    cl_p.add_argument("--raw", action="store_true", help="Show raw response without translation")
-
-    # tutor-meetings
-    tm_p = subs.add_parser("tutor-meetings", help="Freshman tutor meetings")
-    tm_p.add_argument("--search-text", default="")
-    tm_p.add_argument("--page", type=int, default=1)
-    tm_p.add_argument("--page-size", type=int, default=20)
-
-    # teaching-progress
-    tp_p = subs.add_parser("teaching-progress", help="Query teaching progress list")
-    tp_p.add_argument("--calendar", type=int, default=None)
-    tp_p.add_argument("--keyword", default="")
-    tp_p.add_argument("--page", type=int, default=1)
-    tp_p.add_argument("--page-size", type=int, default=20)
-
-    # progress-detail
-    pd_p = subs.add_parser("progress-detail", help="Query teaching progress detail")
-    pd_p.add_argument("id", help="Progress ID")
-
-    # ping
-    subs.add_parser("ping", help="Test 1.tongji.edu.cn session")
-
-    # serve
-    serve_p = subs.add_parser("serve", help="Start HTTP server")
-    serve_p.add_argument("--host", default="127.0.0.1")
-    serve_p.add_argument("--port", type=int, default=8000)
-
-    args = parser.parse_args()
-
-    if args.command is None:
-        parser.print_help()
-        return
-
-    if args.command == "serve":
-        from tongji.server import run_server
-        run_server(args.host, args.port)
-        return
-
-    if args.command == "login":
-        if args.mfa and args.id:
-            asyncio.run(cmd_login_mfa(args.id, args.mfa))
-        else:
-            asyncio.run(cmd_login())
-        return
-
-    # All other commands need a session
+def main() -> None:
     settings = get_settings()
     configure_logging(settings.log_level)
+    args = _parser().parse_args()
+    try:
+        if args.command == "serve":
+            from tongji.server import run_server
 
-    if args.command == "me":
-        asyncio.run(cmd_me())
-    elif args.command == "notices":
-        asyncio.run(cmd_notices(args.page, args.page_size, args.keyword))
-    elif args.command == "notice":
-        asyncio.run(cmd_notice_detail(args.id))
-    elif args.command == "courses":
-        asyncio.run(cmd_courses(args.calendar, args.page, args.page_size))
-    elif args.command == "cross-courses":
-        asyncio.run(cmd_cross_courses(args.student_id, args.calendar, args.page, args.page_size))
-    elif args.command == "calendar":
-        asyncio.run(cmd_calendar(args.action))
-    elif args.command == "scores":
-        asyncio.run(cmd_scores(tags=args.tags, rank=args.rank, raw=args.raw))
-    elif args.command == "plan":
-        asyncio.run(cmd_plan())
-    elif args.command == "plan-detail":
-        asyncio.run(cmd_plan_detail())
-    elif args.command == "timetable":
-        asyncio.run(cmd_timetable(args.calendar))
-    elif args.command == "major-timetable":
-        asyncio.run(cmd_major_timetable(args.code, args.grade, args.calendar))
-    elif args.command == "exams":
-        asyncio.run(cmd_exams(raw=args.raw))
-    elif args.command == "tutor-meetings":
-        asyncio.run(cmd_tutor_meetings(args.search_text, args.page, args.page_size))
-    elif args.command == "teaching-progress":
-        asyncio.run(cmd_teaching_progress(args.calendar, args.keyword, args.page, args.page_size))
-    elif args.command == "progress-detail":
-        asyncio.run(cmd_progress_detail(args.id))
-    elif args.command == "stations":
-        asyncio.run(cmd_stations(raw=args.raw))
-    elif args.command == "classroom":
-        asyncio.run(cmd_classroom(raw=args.raw))
-    elif args.command == "ping":
-        asyncio.run(cmd_ping())
-    else:
-        parser.print_help()
+            run_server(host=args.host, port=args.port)
+        elif args.command == "login":
+            asyncio.run(_login())
+        elif args.command == "ping":
+            asyncio.run(_ping())
+        elif args.command == "logout":
+            asyncio.run(_logout())
+        elif args.command == "modules":
+            from tongji.modules import get_registry
+
+            _print(get_registry().metadata())
+        elif args.command == "call":
+            asyncio.run(_call(args.module, args.data))
+    except (AppError, ValueError, json.JSONDecodeError) as exc:
+        if isinstance(exc, AppError):
+            _print(
+                {
+                    "ok": False,
+                    "error": {
+                        "code": exc.code,
+                        "message": exc.message,
+                        "details": exc.details,
+                        "action_required": exc.action_required,
+                    },
+                }
+            )
+        else:
+            _print({"ok": False, "error": str(exc)})
+        raise SystemExit(1) from exc
+
+
+if __name__ == "__main__":
+    main()

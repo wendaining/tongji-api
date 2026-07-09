@@ -13,7 +13,7 @@
 - 不要引入开放平台的 `client_id`、`client_secret`、OAuth 作用域或 bearer token。
 - 第一阶段按 XiaLing233 的状态机流程程序化登录 1 系统。
 - IAM 学号和密码通过环境变量或本地配置提供；不得写入日志或 session 文件。
-- MFA 第一阶段支持邮箱验证码手动输入，不自动保存验证码。
+- MFA 支持 IMAP 自动读取或同进程手动输入，不保存验证码。
 - 登录成功后持久化 1 系统的 `JSESSIONID` 和 `sessionid`。
 - 第一阶段为只读：仅限会话、通知、日历和课程安排的查询。
 
@@ -54,11 +54,10 @@ Cookie: JSESSIONID=<jsessionid>; sessionid=<sessionid>
 **POST 请求体**：全部使用 `application/x-www-form-urlencoded`（form-encoded），不使用 JSON。这与 XiaLing233 的 `data=dict` + `urlencode()` 一致。
 
 ```python
-# ✅ 正确：form-encoded
+# 正确：form-encoded
 client.request("POST", "/api/...", data={"pageNum_": 1, "pageSize_": 20})
 
-# ❌ 错误：JSON body（不要用）
-client.request("POST", "/api/...", json_body={"pageNum_": 1, "pageSize_": 20})
+# 错误：不要绕过 RawOneClient 发送 JSON body
 ```
 
 嵌套字段用 Spring MVC 点号扁平化：
@@ -84,10 +83,9 @@ client.request("GET", "/api/.../findById", params={"id": id, "t": str(int(time.t
 
 ### 未实现 / 后续阶段
 
-- IMAP 自动收验证码（XiaLing233 的 `imap.py`）
 - AES 文件路径加密（`encrypt.py` 的 `getAESKeyAndIV` / `encryptFilePath`）
 - 退出登录（`loginout.py` 的 `logout`）
-- `currentWeek` 接口（XiaLing233 未使用，上游参数绑定方式待排查）
+- `currentWeek` 上游接口的参数绑定仍待确认，Agent 工具提供校历计算回退。
 
 ## 预期流程
 

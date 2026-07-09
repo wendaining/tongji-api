@@ -62,4 +62,3 @@ async def query_operation_guide(client: RawOneClient) -> Any:
         "GET",
         "/api/baseresservice/operationGuide/queryUserOperationGuide",
     )
-

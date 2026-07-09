@@ -53,6 +53,7 @@ async def get_status_info_by_student_id(client: RawOneClient, *, student_id: str
     Ref: GET /api/studentservice/studentDetailInfo/getStatusInfoByStudentId
     """
     import time
+
     return await client.request(
         "GET",
         "/api/studentservice/studentDetailInfo/getStatusInfoByStudentId",
@@ -70,6 +71,7 @@ async def find_user_info_by_type(client: RawOneClient, *, user_id: str, type_: s
     Ref: GET /api/studentservice/studentInfo/findUserInfoByType
     """
     import time
+
     return await client.request(
         "GET",
         "/api/studentservice/studentInfo/findUserInfoByType",

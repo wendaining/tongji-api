@@ -13,6 +13,7 @@ from tongji.core.client import RawOneClient
 
 # ── 已有的培养方案概览接口 ──────────────────────────────
 
+
 async def plan_course_tab(client: RawOneClient, *, student_id: str) -> Any:
     """Fetch a student's plan courses organised by label tabs.
 
@@ -51,6 +52,7 @@ async def course_label_tree(client: RawOneClient, *, student_id: str) -> Any:
 
 # ── 培养方案详情页接口（myBclCultureScheme 页面） ──────────
 
+
 async def student_culture_scheme(client: RawOneClient, *, student_id: str) -> Any:
     """Query the student's culture scheme association.
 
@@ -61,7 +63,7 @@ async def student_culture_scheme(client: RawOneClient, *, student_id: str) -> An
     """
     return await client.request(
         "GET",
-        f"/api/cultureservice/bclStudentCultureRel/queryStudentCultureScheme",
+        "/api/cultureservice/bclStudentCultureRel/queryStudentCultureScheme",
         params={"stuid": student_id},
     )
 
@@ -81,14 +83,17 @@ async def culture_scheme_by_id(client: RawOneClient, *, scheme_id: str | int) ->
 
 
 async def culture_scheme_detail_list(
-    client: RawOneClient, *, culture_id: str | int,
+    client: RawOneClient,
+    *,
+    culture_id: str | int,
 ) -> Any:
     """Fetch the detail / template list for a culture scheme.
 
     Returns the structured breakdown of all course groups and
     requirements within a scheme.
 
-    Ref: GET /api/cultureservice/bclCultureSchemeDetail/findCultScheDetailOrTemplateList?cultureId=...
+    Ref: GET bclCultureSchemeDetail/findCultScheDetailOrTemplateList
+    with the cultureId query parameter.
     """
     return await client.request(
         "GET",
@@ -98,7 +103,9 @@ async def culture_scheme_detail_list(
 
 
 async def culture_scheme_terms(
-    client: RawOneClient, *, scheme_id: str | int,
+    client: RawOneClient,
+    *,
+    scheme_id: str | int,
 ) -> Any:
     """Fetch the school terms associated with a culture scheme.
 
@@ -112,7 +119,10 @@ async def culture_scheme_terms(
 
 
 async def culture_label_list(
-    client: RawOneClient, *, scheme_id: str | int, type_id: str = "2",
+    client: RawOneClient,
+    *,
+    scheme_id: str | int,
+    type_id: str = "2",
 ) -> Any:
     """Fetch the course label/category list for a scheme.
 
@@ -128,7 +138,10 @@ async def culture_label_list(
 
 
 async def culture_label_relation(
-    client: RawOneClient, *, scheme_id: str | int, type_id: str = "2",
+    client: RawOneClient,
+    *,
+    scheme_id: str | int,
+    type_id: str = "2",
 ) -> Any:
     """Fetch course-to-label relations for a scheme.
 

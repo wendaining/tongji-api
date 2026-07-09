@@ -20,6 +20,7 @@ class SessionRecord(BaseModel):
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     last_validated_at: datetime | None = None
+    invalidated_at: datetime | None = None
     metadata: dict[str, str] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="ignore")
@@ -32,6 +33,8 @@ class SessionStatus(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     last_validated_at: datetime | None = None
+    invalidated_at: datetime | None = None
+    is_valid: bool = False
 
 
 class SessionStore:
@@ -73,6 +76,7 @@ class SessionStore:
                 created_at=existing.created_at if existing else now,
                 updated_at=now,
                 last_validated_at=existing.last_validated_at if existing else None,
+                invalidated_at=None,
             )
             self.path.parent.mkdir(parents=True, exist_ok=True)
             tmp_path = self.path.with_suffix(self.path.suffix + ".tmp")
@@ -87,15 +91,15 @@ class SessionStore:
 
     def get_sessionid(self) -> str | None:
         record = self.read()
-        return record.sessionid if record else None
+        return record.sessionid if record and record.invalidated_at is None else None
 
     def get_jsessionid(self) -> str | None:
         record = self.read()
-        return record.jsessionid if record else None
+        return record.jsessionid if record and record.invalidated_at is None else None
 
     def get_cookie_header(self) -> str | None:
         record = self.read()
-        if not record:
+        if not record or record.invalidated_at is not None:
             return None
         cookies = []
         if record.jsessionid:
@@ -120,6 +124,19 @@ class SessionStore:
             if not existing:
                 return None
             existing.last_validated_at = utc_now()
+            existing.invalidated_at = None
+            existing.updated_at = utc_now()
+            tmp_path = self.path.with_suffix(self.path.suffix + ".tmp")
+            tmp_path.write_text(existing.model_dump_json(indent=2), encoding="utf-8")
+            tmp_path.replace(self.path)
+            return existing
+
+    def mark_invalid(self) -> SessionRecord | None:
+        with self._lock:
+            existing = self.read()
+            if not existing:
+                return None
+            existing.invalidated_at = utc_now()
             existing.updated_at = utc_now()
             tmp_path = self.path.with_suffix(self.path.suffix + ".tmp")
             tmp_path.write_text(existing.model_dump_json(indent=2), encoding="utf-8")
@@ -129,7 +146,7 @@ class SessionStore:
     def status(self) -> SessionStatus:
         record = self.read()
         if not record:
-            return SessionStatus(has_session=False)
+            return SessionStatus(has_session=False, is_valid=False)
         return SessionStatus(
             has_session=True,
             has_jsession=bool(record.jsessionid),
@@ -137,6 +154,8 @@ class SessionStore:
             created_at=record.created_at,
             updated_at=record.updated_at,
             last_validated_at=record.last_validated_at,
+            invalidated_at=record.invalidated_at,
+            is_valid=record.invalidated_at is None,
         )
 
     def public_status(self) -> dict[str, Any]:

@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     request_timeout_seconds: float = Field(default=15, gt=0)
     login_expires_seconds: int = Field(default=600, gt=0)
     log_level: str = "INFO"
+    host: str = "127.0.0.1"
+    port: int = Field(default=8000, ge=1, le=65535)
 
     # IMAP config for MFA auto-fetch (XiaLing233 alignment)
     imap_email: str | None = None
@@ -40,6 +42,10 @@ class Settings(BaseSettings):
             raise RuntimeError(
                 "TJ_IAM_USERNAME and TJ_IAM_PASSWORD are required for programmatic login"
             )
+
+    @property
+    def is_loopback_host(self) -> bool:
+        return self.host.strip().lower() in {"127.0.0.1", "::1", "localhost"}
 
 
 @lru_cache

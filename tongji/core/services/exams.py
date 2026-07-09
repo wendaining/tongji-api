@@ -9,7 +9,6 @@ from typing import Any
 
 from tongji.core.client import RawOneClient
 
-
 EXAM_AUTH_ID = 9102  # undergraduate exam auth context
 
 

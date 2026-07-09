@@ -3,8 +3,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from tongji.core.errors import SessionExpiredError
 from tongji.core.client import RawOneClient
+from tongji.core.errors import SessionExpiredError
 from tongji.core.session_store import SessionStore
 
 
