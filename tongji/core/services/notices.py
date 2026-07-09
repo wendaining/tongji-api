@@ -56,3 +56,24 @@ async def unread_count(client: RawOneClient) -> Any:
         "GET",
         "/api/commonservice/commonMsgPublish/myNotReadCommonMsgCount",
     )
+
+
+async def my_notices(
+    client: RawOneClient,
+    *,
+    page: int = 1,
+    page_size: int = 50,
+) -> Any:
+    """Query the current user's scoped notice list (workbench widget).
+
+    Uses ``findMyCommonMsgPublish`` instead of the global search variant
+    — returns only notices relevant to the logged-in user.
+
+    Ref: POST /api/commonservice/commonMsgPublish/findMyCommonMsgPublish
+        Scanned from /workbench page, 2026-07-09.
+    """
+    return await client.request(
+        "POST",
+        "/api/commonservice/commonMsgPublish/findMyCommonMsgPublish",
+        data={"pageNum_": page, "pageSize_": page_size},
+    )

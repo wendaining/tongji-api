@@ -120,6 +120,20 @@ def create_app() -> FastAPI:
             data["list"] = [translate_notice(n) for n in (data.get("list") or [])]
         return result
 
+    @app.get("/notices/my", tags=["notices"])
+    async def my_notices(
+        page: int = Query(default=1, ge=1),
+        page_size: int = Query(default=50, ge=1, le=100),
+        translated: bool = Query(default=False),
+    ):
+        result = await notices_svc.my_notices(
+            _get_client(), page=page, page_size=page_size,
+        )
+        if translated:
+            data = result.get("data") or {}
+            data["list"] = [translate_notice(n) for n in (data.get("list") or [])]
+        return result
+
     @app.get("/notices/{notice_id}", tags=["notices"])
     async def notice_detail(
         notice_id: str,
