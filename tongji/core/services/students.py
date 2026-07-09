@@ -138,3 +138,36 @@ async def check_activation(client: RawOneClient, *, student_id: str) -> Any:
         "/api/studentservice/stuActivation/checkActivation",
         params={"studentId": student_id},
     )
+
+
+async def get_stu_detail_by_class(
+    client: RawOneClient,
+    *,
+    encrypted_student_id: str,
+    field_classes: list[str] | None = None,
+) -> Any:
+    """Query student detail information grouped by field classes.
+
+    The ``encrypted_student_id`` is the AES-encrypted student ID obtained
+    from upstream (same as ``find_user_info_by_type``).
+
+    ``field_classes`` defaults to the two standard groups used by the
+    student detail page.
+
+    Ref: POST /api/studentservice/studentDetailInfo/stuDetailByClass
+        Scanned from /StudentBaseInfo page via CDP, 2026-07-09.
+    """
+    if field_classes is None:
+        field_classes = [
+            "student_basic_information_t",
+            "student_contact_information_t",
+        ]
+
+    return await client.request(
+        "POST",
+        "/api/studentservice/studentDetailInfo/stuDetailByClass",
+        data={
+            "studentId": encrypted_student_id,
+            "fieldClasses": field_classes,
+        },
+    )

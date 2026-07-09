@@ -145,3 +145,71 @@ async def query_attend_class_content(client: RawOneClient, *, choose_date: str) 
         "/api/electionservice/reportManagement/queryAttendClassContent",
         params={"chooseDate": choose_date},
     )
+
+
+# ---------------------------------------------------------------------------
+# Election rounds & apply list
+# ---------------------------------------------------------------------------
+
+
+async def get_rounds(client: RawOneClient, *, project_id: int = 1) -> Any:
+    """Query the active election rounds for a project.
+
+    Returns the list of election rounds (选课轮次).
+
+    Ref: POST /api/electionservice/student/getRounds?projectId=1
+        Scanned via CDP from multiple pages, 2026-07-09.
+    """
+    return await client.request(
+        "POST",
+        "/api/electionservice/student/getRounds",
+        params={"projectId": str(project_id)},
+    )
+
+
+async def stu_apply_course_list(
+    client: RawOneClient,
+    *,
+    page: int = 1,
+    page_size: int = 20,
+    calendar_id: str = "",
+    code: str = "",
+    course_name: str = "",
+    college: str = "",
+    training_level: str = "",
+) -> Any:
+    """Query the student's applied course list for selection.
+
+    Returns the paginated list of courses the student has applied for.
+
+    Ref: POST /api/electionservice/electionApply/stuApplyCourseList
+        Scanned via CDP from multiple pages, 2026-07-09.
+    """
+    condition: dict[str, str] = {
+        "calendarId": calendar_id,
+        "code": code,
+        "keyCode": "",
+        "keyCode2": "",
+        "courseName": course_name,
+        "college": college,
+        "credits": "",
+        "period": "",
+        "weekHour": "",
+        "weekNum": "",
+        "profession": "",
+        "studentCode": "",
+        "studentName": "",
+        "trainingLevel": training_level,
+    }
+    body: dict[str, Any] = {
+        "pageNum_": page,
+        "pageSize_": page_size,
+    }
+    for k, v in condition.items():
+        body[f"condition.{k}"] = v
+
+    return await client.request(
+        "POST",
+        "/api/electionservice/electionApply/stuApplyCourseList",
+        data=body,
+    )

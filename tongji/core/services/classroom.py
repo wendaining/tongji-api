@@ -23,3 +23,40 @@ async def condition_query_classroom_tower(client: RawOneClient) -> Any:
         "/api/baseresservice/classroomTowerInfo/conditionQueryByDict",
         data={},
     )
+
+
+async def classroom_usage_report_count_query(
+    client: RawOneClient,
+    *,
+    calendar_id: int,
+    campus: str = "",
+    tower_code: str = "",
+    week_at: str = "1",
+    page: int = 1,
+    page_size: int = 20,
+) -> Any:
+    """Query the classroom usage report / occupancy statistics.
+
+    Returns paginated classroom usage data for the given calendar and filters.
+
+    Ref: POST /api/baseresservice/classroomOccupation/classroomUsageReportCountQuery
+        postData: {pageNum_,pageSize_,calendarId,campus,towerCode,weekAt,
+                   weekDayList:[],timeStart,timeEnd,conditionValue}
+        Scanned from /classroomUsageReport page via CDP, 2026-07-09.
+    """
+    return await client.request(
+        "POST",
+        "/api/baseresservice/classroomOccupation/classroomUsageReportCountQuery",
+        data={
+            "pageNum_": page,
+            "pageSize_": page_size,
+            "calendarId": calendar_id,
+            "campus": campus,
+            "towerCode": tower_code,
+            "weekAt": week_at,
+            "weekDayList": [],
+            "timeStart": "",
+            "timeEnd": "",
+            "conditionValue": "",
+        },
+    )

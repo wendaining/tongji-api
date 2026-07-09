@@ -160,3 +160,18 @@ async def my_strength_class_info(client: RawOneClient) -> Any:
         "GET",
         "/api/cultureservice/ScAdmStuRel/myStrengthClassInfo",
     )
+
+
+async def get_strengthen_class_info(client: RawOneClient, *, type_id: int = 2) -> Any:
+    """Query strengthened class registration time info.
+
+    Returns registration window and class schedule information.
+
+    Ref: GET /api/cultureservice/ScRegisterTimeInfo/getStrengthenClassInfo?type=2
+        Scanned from /scStudentRegistration page via CDP, 2026-07-09.
+    """
+    return await client.request(
+        "GET",
+        "/api/cultureservice/ScRegisterTimeInfo/getStrengthenClassInfo",
+        params={"type": str(type_id)},
+    )

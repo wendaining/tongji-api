@@ -25,6 +25,7 @@ from tongji.core.services import (
     exams as exams_svc,
     help_center as help_center_svc,
     major as major_svc,
+    picture as picture_svc,
     notices as notices_svc,
     session as session_svc,
     students as student_svc,
@@ -554,6 +555,55 @@ def create_app() -> FastAPI:
     @app.get("/help/my", tags=["help"])
     async def help_my_articles():
         return await help_center_svc.find_my_help_center(_get_client())
+
+    # ------------------------------------------------------------------
+    # Student pictures
+    # ------------------------------------------------------------------
+    @app.post("/students/picture", tags=["students"])
+    async def student_picture(student_ids: str = Query(alias="studentIds")):
+        ids = [s.strip() for s in student_ids.split(",")]
+        return await picture_svc.query_picture(_get_client(), student_ids=ids)
+
+    # ------------------------------------------------------------------
+    # Election rounds & apply list
+    # ------------------------------------------------------------------
+    @app.get("/elections/rounds", tags=["elections"])
+    async def elections_rounds(project_id: int = Query(default=1, alias="projectId")):
+        return await elections_svc.get_rounds(_get_client(), project_id=project_id)
+
+    @app.get("/elections/apply-list", tags=["elections"])
+    async def elections_apply_list(
+        page: int = Query(default=1, ge=1),
+        page_size: int = Query(default=20, ge=1, le=100),
+        calendar_id: str = Query(default="", alias="calendarId"),
+    ):
+        return await elections_svc.stu_apply_course_list(
+            _get_client(), page=page, page_size=page_size, calendar_id=calendar_id,
+        )
+
+    # ------------------------------------------------------------------
+    # Classroom usage report
+    # ------------------------------------------------------------------
+    @app.get("/classroom/usage-report", tags=["classroom"])
+    async def classroom_usage_report(
+        calendar_id: int = Query(alias="calendarId"),
+        campus: str = Query(default=""),
+        tower_code: str = Query(default="", alias="towerCode"),
+        week_at: str = Query(default="1", alias="weekAt"),
+        page: int = Query(default=1, ge=1),
+        page_size: int = Query(default=20, ge=1, le=100),
+    ):
+        return await classroom_svc.classroom_usage_report_count_query(
+            _get_client(), calendar_id=calendar_id, campus=campus,
+            tower_code=tower_code, week_at=week_at, page=page, page_size=page_size,
+        )
+
+    # ------------------------------------------------------------------
+    # Culture / strength class info
+    # ------------------------------------------------------------------
+    @app.get("/culture/strength-class-info", tags=["plan"])
+    async def culture_strength_class_info(type_id: int = Query(default=2, alias="type")):
+        return await culture_svc.get_strengthen_class_info(_get_client(), type_id=type_id)
 
     return app
 
