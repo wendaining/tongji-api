@@ -91,8 +91,8 @@ async def get_is_nest_calendar_id(
     return await client.request(
         "POST",
         "/api/electionservice/electionRound/getIsNestCalendarId",
-        json_body={
-            "calendarId": calendar_id,
+        data={
+            "calendarId": str(calendar_id),
             "mode": mode,
             "projectId": project_id,
         },

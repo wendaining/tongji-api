@@ -21,19 +21,16 @@ async def query_by_page(
     """Query tutor meetings by page.
 
     ``search_type``: ``"2"`` = meeting name; other values TBD.
-    The upstream endpoint expects JSON body, not form-encoded.
-
     Ref: POST /api/welcomeservice/tutorMeeting/queryByPage
     """
+    body: dict[str, Any] = {
+        "condition.searchType": search_type,
+        "condition.searchText": search_text,
+        "pageNum_": page,
+        "pageSize_": page_size,
+    }
     return await client.request(
         "POST",
         "/api/welcomeservice/tutorMeeting/queryByPage",
-        json_body={
-            "condition": {
-                "searchType": search_type,
-                "searchText": search_text,
-            },
-            "pageNum_": page,
-            "pageSize_": page_size,
-        },
+        data=body,
     )

@@ -359,26 +359,45 @@ def translate_dictionary_item(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Exam arrange (考试安排)
+# Exam schedule (考试安排/分级考试)
+# Ref: GET /api/welcomeservice/examinationStudents/exam
 # ---------------------------------------------------------------------------
 
 EXAM_ARRANGE_FIELDS = [
-    ("courseName", "课程名称"),
-    ("courseCode", "课程代码"),
-    ("examDate", "考试日期"),
+    ("id", "ID"),
+    ("subject", "科目"),
+    ("studentName", "姓名"),
+    ("grade", "年级"),
+    ("faculty", "学院"),
+    ("major", "专业"),
     ("examTime", "考试时间"),
-    ("examLocation", "考试地点"),
-    ("seatNo", "座位号"),
-    ("campusName", "校区"),
-    ("examType", "考试类型"),
-    ("credit", "学分"),
-    ("teacherName", "任课教师"),
+    ("examAddress", "考试地点"),
+    ("examResults", "考试结果"),
+    ("sugCourses", "建议课程"),
+    ("remark", "备注"),
+    ("lookBeginTime", "查看开始"),
+    ("lookEndTime", "查看结束"),
+    ("resultBeginTime", "成绩公布"),
+    ("resultEndTime", "成绩公布截止"),
+    ("calendarName", "学期"),
+    ("notice", "考试须知"),
 ]
+
+# Generic notice fields to drop from per-entry translation (keep concise)
+EXAM_NOTICE_FIELDS = {"notice", "sugCourses", "remark"}
 
 
 def translate_exam_arrange(raw: dict[str, Any]) -> dict[str, Any]:
-    """Translate a single exam arrangement entry."""
-    return {label: _pick(raw, code) for code, label in EXAM_ARRANGE_FIELDS}
+    """Translate a single exam schedule entry."""
+    result: dict[str, Any] = {}
+    for code, label in EXAM_ARRANGE_FIELDS:
+        result[label] = _pick(raw, code)
+
+    # Expand calendarId-level info if present
+    if raw.get("calendarId"):
+        result["学期ID"] = raw["calendarId"]
+
+    return result
 
 
 # ---------------------------------------------------------------------------

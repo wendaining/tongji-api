@@ -261,17 +261,25 @@ async def cmd_major_timetable(code: str, grade: str, calendar_id: int) -> None:
         await client.aclose()
 
 
-async def cmd_exams() -> None:
-    """Query exam schedule (undergraduate)."""
+async def cmd_exams(raw: bool = False) -> None:
+    """Query undergraduate exam schedule (including placement tests)."""
+    from tongji.core.dict import translate_exam_arrange
+
     client = _load_client()
     try:
         await exams_svc.current_auth_id(client, auth_id=9102)
-        exam_type = await exams_svc.get_default_exam_type(client)
-        semesters = await exams_svc.query_dictionary(client, keys=["X_XQ"], auth_id=9102)
-        _print({
-            "default_exam_type": exam_type.get("data") or exam_type,
-            "semesters": semesters.get("data") or semesters,
-        })
+        await session_svc.set_language(client)
+        result = await exams_svc.get_exam_schedule(client)
+        exam_list = (result.get("data") or result) if isinstance(result, dict) else result
+
+        if isinstance(exam_list, list):
+            if raw:
+                _print({"count": len(exam_list), "items": exam_list})
+            else:
+                translated = [translate_exam_arrange(e) for e in exam_list]
+                _print({"count": len(translated), "items": translated})
+        else:
+            _print(result, ok=False)
     finally:
         await client.aclose()
 
@@ -530,7 +538,8 @@ def main():
     mt_p.add_argument("--calendar", type=int, required=True, help="Calendar ID, e.g. 122")
 
     # exams
-    subs.add_parser("exams", help="Exam schedule (undergraduate)")
+    ex_p = subs.add_parser("exams", help="Exam schedule (undergraduate)")
+    ex_p.add_argument("--raw", action="store_true", help="Show raw response without translation")
 
     # tutor-meetings
     tm_p = subs.add_parser("tutor-meetings", help="Freshman tutor meetings")
@@ -602,7 +611,7 @@ def main():
     elif args.command == "major-timetable":
         asyncio.run(cmd_major_timetable(args.code, args.grade, args.calendar))
     elif args.command == "exams":
-        asyncio.run(cmd_exams())
+        asyncio.run(cmd_exams(raw=args.raw))
     elif args.command == "tutor-meetings":
         asyncio.run(cmd_tutor_meetings(args.search_text, args.page, args.page_size))
     elif args.command == "teaching-progress":

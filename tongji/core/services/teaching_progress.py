@@ -51,10 +51,14 @@ async def progress_query(
     if calendar_id is not None:
         condition["calendarId"] = calendar_id
 
+    body: dict[str, Any] = {"pageNum_": page, "pageSize_": page_size}
+    for k, v in condition.items():
+        body[f"condition.{k}"] = v
+
     return await client.request(
         "POST",
         "/api/arrangementservice/teachingProgress/progressQuery",
-        json_body={"condition": condition, "pageNum_": page, "pageSize_": page_size},
+        data=body,
     )
 
 
@@ -65,10 +69,16 @@ async def get_progress_detail(
 
     Ref: POST /api/arrangementservice/teachingProgress/getPageContentById
     """
+    body: dict[str, Any] = {
+        "condition.id": id,
+        "condition.keywords": keywords,
+        "pageNum_": page,
+        "pageSize_": page_size,
+    }
     return await client.request(
         "POST",
         "/api/arrangementservice/teachingProgress/getPageContentById",
-        json_body={"condition": {"id": id, "keywords": keywords}, "pageNum_": page, "pageSize_": page_size},
+        data=body,
     )
 
 

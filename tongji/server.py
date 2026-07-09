@@ -248,6 +248,32 @@ def create_app() -> FastAPI:
     # ------------------------------------------------------------------
     # Exams
     # ------------------------------------------------------------------
+    @app.get("/exams", tags=["exams"])
+    async def exams_schedule(
+        translated: bool = Query(default=False),
+    ):
+        """Query undergraduate exam schedule (including placement tests).
+
+        Returns a flat list of all exam records including graded placement tests.
+        Each entry includes subject name, exam time, location, result, and
+        suggested follow-up courses.
+        """
+        client = _get_client()
+        await exams_svc.current_auth_id(client, auth_id=9102)
+        await session_svc.set_language(client)
+        result = await exams_svc.get_exam_schedule(client)
+        exam_list = (result.get("data") or result) if isinstance(result, dict) else result
+
+        if not isinstance(exam_list, list):
+            return result
+
+        if translated:
+            return {
+                "count": len(exam_list),
+                "items": [translate_exam_arrange(e) for e in exam_list],
+            }
+        return {"count": len(exam_list), "items": exam_list}
+
     @app.get("/exams/info", tags=["exams"])
     async def exams_info():
         client = _get_client()

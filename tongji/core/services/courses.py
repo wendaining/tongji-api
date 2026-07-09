@@ -73,9 +73,14 @@ async def query_teaching_tasks(
     if keyword:
         condition["keyword"] = keyword
 
+    # Ref: XiaLing233 — form-encoded + Spring MVC dot flattening for condition
+    body: dict[str, Any] = {"pageNum_": page, "pageSize_": page_size}
+    for k, v in condition.items():
+        body[f"condition.{k}"] = v
+
     return await client.request(
         "POST",
         "/api/arrangementservice/manualArrange/page",
         params={"profile": ""},
-        json_body={"condition": condition, "pageNum_": page, "pageSize_": page_size},
+        data=body,
     )

@@ -21,6 +21,6 @@ async def set_language(client: RawOneClient, *, language: str = "cn") -> Any:
     return await client.request(
         "PUT",
         "/api/sessionservice/session/setLanguage",
-        json_body={"language": language},
+        data={"language": language},
     )
 

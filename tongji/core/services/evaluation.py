@@ -21,5 +21,5 @@ async def force_questionnaire(client: RawOneClient, *, calendar_id: int) -> Any:
     return await client.request(
         "POST",
         "/api/evaluationservice/questionnaireStudent/force",
-        json_body={"calendarId": calendar_id},
+        data={"calendarId": str(calendar_id)},
     )
