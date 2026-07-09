@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from tongji.core.errors import UpstreamError
@@ -52,14 +52,43 @@ def _student(raw: dict[str, Any]) -> StudentSummary:
     )
 
 
+def _parse_date_ms(value: Any) -> str | None:
+    """Convert a millisecond Unix timestamp to a YYYY-MM-DD string."""
+    if not value:
+        return None
+    try:
+        ts = int(value)
+        if ts > 1_000_000_000_000:  # milliseconds → seconds
+            ts //= 1000
+        dt = datetime.fromtimestamp(ts, tz=UTC)
+        return dt.strftime("%Y-%m-%d")
+    except (ValueError, TypeError, OSError):
+        return str(value)
+
+
 def _calendar(raw: dict[str, Any]) -> CalendarSummary:
+    year_val = raw.get("year") or raw.get("academicYear")
+    if isinstance(year_val, int):
+        academic_year = f"{year_val}-{year_val + 1}"
+    else:
+        academic_year = str(year_val or "").strip() or None
+
+    term_code = raw.get("term")
+    term_name = raw.get("termI18n")
+    if not term_name and term_code is not None:
+        term_name = f"第{term_code}学期"
+    elif not term_name:
+        term_name = None
+    else:
+        term_name = str(term_name)
+
     return CalendarSummary(
         calendar_id=raw.get("id") or raw.get("calendarId"),
-        academic_year=str(raw.get("year") or raw.get("academicYear") or "") or None,
-        term_code=raw.get("term"),
-        term_name=_display(raw, "term"),
-        begin_date=raw.get("beginDay") or raw.get("startDate"),
-        end_date=raw.get("endDay") or raw.get("endDate"),
+        academic_year=academic_year,
+        term_code=term_code,
+        term_name=term_name,
+        begin_date=_parse_date_ms(raw.get("beginDay")) or raw.get("startDate"),
+        end_date=_parse_date_ms(raw.get("endDay")) or raw.get("endDate"),
         total_weeks=raw.get("weekNum"),
     )
 
