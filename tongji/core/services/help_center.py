@@ -36,3 +36,17 @@ async def list_all_help(client: RawOneClient) -> Any:
         "/api/commonservice/helpCenter/listAllHelp",
         data={},
     )
+
+
+async def find_my_help_center(client: RawOneClient) -> Any:
+    """Query the user-specific help-centre article list.
+
+    Returns a paginated dict with personalized help articles.
+
+    Ref: POST /api/commonservice/helpCenter/findMyHelpCenter
+    """
+    return await client.request(
+        "POST",
+        "/api/commonservice/helpCenter/findMyHelpCenter",
+        data={},
+    )

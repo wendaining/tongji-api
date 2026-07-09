@@ -114,3 +114,34 @@ async def get_elec_student_info(client: RawOneClient, *, calendar_id: int) -> An
             "_t": str(int(time.time() * 1000)),
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Report / attendance workbench widgets
+# ---------------------------------------------------------------------------
+
+
+async def query_have_class_date(client: RawOneClient, *, year_month: str) -> Any:
+    """Query dates that have classes in a given month.
+
+    Used by the workbench calendar widget to highlight class days.
+
+    Ref: GET /api/electionservice/reportManagement/queryHaveClassDate?yearMonth=...
+    """
+    return await client.request(
+        "GET",
+        "/api/electionservice/reportManagement/queryHaveClassDate",
+        params={"yearMonth": year_month},
+    )
+
+
+async def query_attend_class_content(client: RawOneClient, *, choose_date: str) -> Any:
+    """Query class attendance content for a specific date.
+
+    Ref: GET /api/electionservice/reportManagement/queryAttendClassContent?chooseDate=...
+    """
+    return await client.request(
+        "GET",
+        "/api/electionservice/reportManagement/queryAttendClassContent",
+        params={"chooseDate": choose_date},
+    )

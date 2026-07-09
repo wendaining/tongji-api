@@ -503,6 +503,64 @@ def translate_classroom_tower(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Professional work / academic calendar (教务工作日程)
+# ---------------------------------------------------------------------------
+
+PROFESSIONAL_WORK_FIELDS = [
+    ("businessName", "事项名称"),
+    ("address", "地点"),
+    ("temporalInterval", "时间段"),
+    ("startTime", "开始日期"),
+    ("endTime", "结束日期"),
+    ("calendarId", "学期ID"),
+    ("stuOrTea", "学生/教师"),
+]
+
+
+def translate_professional_work(raw: dict[str, Any]) -> dict[str, Any]:
+    return {label: _pick(raw, code) for code, label in PROFESSIONAL_WORK_FIELDS}
+
+
+# ---------------------------------------------------------------------------
+# Holiday (节假日)
+# ---------------------------------------------------------------------------
+
+HOLIDAY_FIELDS = [
+    ("id", "ID"),
+    ("year", "年份"),
+    ("holidayName", "节日名称"),
+    ("beginDay", "开始日期"),
+    ("endDay", "结束日期"),
+    ("remark", "备注"),
+]
+
+
+def translate_holiday(raw: dict[str, Any]) -> dict[str, Any]:
+    return {label: _pick(raw, code) for code, label in HOLIDAY_FIELDS}
+
+
+# ---------------------------------------------------------------------------
+# Apply status (申请状态)
+# ---------------------------------------------------------------------------
+
+APPLY_STATUS_FIELDS = [
+    ("profession", "专业"),
+    ("faculty", "学院"),
+    ("currentGrade", "当前年级"),
+    ("statusFaculty", "学籍学院"),
+    ("enrolMethods", "入学方式"),
+    ("cultureProfessionName", "培养专业"),
+    ("enrolSeason", "入学季节"),
+    ("isOverseas", "是否留学生"),
+    ("teacherNameCode", "导师"),
+]
+
+
+def translate_apply_status(raw: dict[str, Any]) -> dict[str, Any]:
+    return {label: _pick(raw, code) for code, label in APPLY_STATUS_FIELDS}
+
+
+# ---------------------------------------------------------------------------
 # Generic helper
 # ---------------------------------------------------------------------------
 

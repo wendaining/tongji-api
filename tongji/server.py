@@ -13,7 +13,7 @@ from fastapi import FastAPI, Query
 
 from tongji.core.config import get_settings
 from tongji.core.client import RawOneClient
-from tongji.core.dict import translate_calendar, translate_classroom_tower, translate_course, translate_course_tag, translate_credit_stats, translate_dictionary_item, translate_exam_arrange, translate_grade_course, translate_grade_term, translate_major_timetable, translate_mutual_apply, translate_notice, translate_plan_course, translate_progress_detail, translate_score_rank, translate_station, translate_teaching_progress, translate_timetable, translate_tutor_meeting
+from tongji.core.dict import translate_apply_status, translate_calendar, translate_classroom_tower, translate_course, translate_course_tag, translate_credit_stats, translate_dictionary_item, translate_exam_arrange, translate_grade_course, translate_grade_term, translate_holiday, translate_major_timetable, translate_mutual_apply, translate_notice, translate_plan_course, translate_professional_work, translate_progress_detail, translate_score_rank, translate_station, translate_teaching_progress, translate_timetable, translate_tutor_meeting
 from tongji.core.errors import register_error_handlers
 from tongji.core.logging import configure_logging
 from tongji.core.session_store import SessionStore
@@ -170,6 +170,29 @@ def create_app() -> FastAPI:
     @app.get("/calendar/current-week", tags=["calendar"])
     async def calendar_current_week():
         return await calendar_svc.current_week(_get_client())
+
+    @app.get("/calendar/professional-work", tags=["calendar"])
+    async def calendar_professional_work(translated: bool = Query(default=False)):
+        result = await calendar_svc.professional_work(_get_client())
+        data = (result.get("data") or result) if isinstance(result, dict) else result
+        if isinstance(data, list):
+            if translated:
+                return {"count": len(data), "items": [translate_professional_work(r) for r in data]}
+            return {"count": len(data), "items": data}
+        return result
+
+    @app.get("/calendar/holidays", tags=["calendar"])
+    async def calendar_holidays(
+        year: str = Query(default="2026"),
+        translated: bool = Query(default=False),
+    ):
+        result = await calendar_svc.query_holidays(_get_client(), year=year)
+        data = (result.get("data") or result) if isinstance(result, dict) else result
+        if isinstance(data, list):
+            if translated:
+                return {"count": len(data), "items": [translate_holiday(r) for r in data]}
+            return {"count": len(data), "items": data}
+        return result
 
     @app.get("/calendar/{calendar_id}", tags=["calendar"])
     async def calendar_detail(calendar_id: str, translated: bool = Query(default=False)):
@@ -495,6 +518,42 @@ def create_app() -> FastAPI:
     @app.get("/culture/strength-class", tags=["plan"])
     async def culture_strength_class():
         return await culture_svc.my_strength_class_info(_get_client())
+
+    # ------------------------------------------------------------------
+    # Attendance / class schedule
+    # ------------------------------------------------------------------
+    @app.get("/attendance/class-dates", tags=["attendance"])
+    async def attendance_class_dates(year_month: str = Query(alias="yearMonth")):
+        return await elections_svc.query_have_class_date(_get_client(), year_month=year_month)
+
+    @app.get("/attendance/class-content", tags=["attendance"])
+    async def attendance_class_content(choose_date: str = Query(alias="chooseDate")):
+        return await elections_svc.query_attend_class_content(_get_client(), choose_date=choose_date)
+
+    # ------------------------------------------------------------------
+    # Student activation & apply status
+    # ------------------------------------------------------------------
+    @app.get("/students/status", tags=["students"])
+    async def student_apply_status(
+        student_id: str = Query(alias="studentId"),
+        translated: bool = Query(default=False),
+    ):
+        result = await student_svc.get_apply_status_info(_get_client(), student_id=student_id)
+        data = (result.get("data") or result) if isinstance(result, dict) else result
+        if isinstance(data, list) and data and translated:
+            return translate_apply_status(data[0])
+        return result
+
+    @app.get("/students/activation", tags=["students"])
+    async def student_activation(student_id: str = Query(alias="studentId")):
+        return await student_svc.check_activation(_get_client(), student_id=student_id)
+
+    # ------------------------------------------------------------------
+    # Help centre my articles
+    # ------------------------------------------------------------------
+    @app.get("/help/my", tags=["help"])
+    async def help_my_articles():
+        return await help_center_svc.find_my_help_center(_get_client())
 
     return app
 

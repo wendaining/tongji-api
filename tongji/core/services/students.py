@@ -110,3 +110,31 @@ async def get_station_info_list(client: RawOneClient) -> Any:
         "/api/studentservice/studentDetailInfo/getStationInfoList",
         data={},
     )
+
+
+async def get_apply_status_info(client: RawOneClient, *, student_id: str) -> Any:
+    """Query the student's application/process status info.
+
+    Returns a list with status records including profession, faculty, grade etc.
+
+    Ref: GET /api/studentservice/apply/statusInfo?studentId=...
+    """
+    return await client.request(
+        "GET",
+        "/api/studentservice/apply/statusInfo",
+        params={"studentId": student_id},
+    )
+
+
+async def check_activation(client: RawOneClient, *, student_id: str) -> Any:
+    """Check whether the student's account is activated.
+
+    Returns a boolean (``True`` = activated).
+
+    Ref: GET /api/studentservice/stuActivation/checkActivation?studentId=...
+    """
+    return await client.request(
+        "GET",
+        "/api/studentservice/stuActivation/checkActivation",
+        params={"studentId": student_id},
+    )
