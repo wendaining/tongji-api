@@ -61,14 +61,18 @@ class RawOneClient:
         *,
         params: Mapping[str, Any] | None = None,
         data: Mapping[str, Any] | None = None,
+        json: Any = None,
+        headers: Mapping[str, str] | None = None,
         require_session: bool = True,
     ) -> Any:
-        """Send a raw-one request using query parameters or form data."""
+        """Send a raw-one request using query parameters, form data, or JSON."""
         response = await self._send(
             method,
             path,
             params=params,
             data=data,
+            json=json,
+            headers=headers,
             require_session=require_session,
         )
         return self._parse_response(response)
@@ -80,22 +84,25 @@ class RawOneClient:
         *,
         params: Mapping[str, Any] | None,
         data: Mapping[str, Any] | None,
+        json: Any,
+        headers: Mapping[str, str] | None,
         require_session: bool,
     ) -> httpx.Response:
-        headers = dict(REQUEST_HEADERS)
+        request_headers = dict(REQUEST_HEADERS)
+        request_headers.update(headers or {})
         sessionid = self.session_store.get_sessionid()
         cookie_header = self.session_store.get_cookie_header()
 
         if require_session:
             if not sessionid or not cookie_header:
                 raise NoSessionError()
-            headers["X-Token"] = sessionid
-            headers["Cookie"] = cookie_header
+            request_headers["X-Token"] = sessionid
+            request_headers["Cookie"] = cookie_header
 
         # Ref: XiaLing233 uses urlencode() for form posts — set the matching
         # Content-Type only when sending form data.
         if data is not None:
-            headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
+            request_headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
 
         try:
             return await self._client.request(
@@ -103,7 +110,8 @@ class RawOneClient:
                 path,
                 params=params,
                 data=data,
-                headers=headers,
+                json=json,
+                headers=request_headers,
             )
         except httpx.TimeoutException as exc:
             raise UpstreamError("请求 1 系统超时。") from exc

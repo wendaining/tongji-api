@@ -193,6 +193,17 @@ MODULES = (
             **PAGE_FIELDS,
         },
     ),
+    _module(
+        "courses_search",
+        "/courses/search",
+        "查询全校排课课程",
+        courses.search_all_courses,
+        description=("按学期和可选课程关键词查询全校教学班，自动遍历上游分页并合并结果。"),
+        fields={
+            "calendar_id": (int, Field(alias="calendarId")),
+            "keyword": (str, ""),
+        },
+    ),
     _module("calendar_list", "/calendar/list", "查询校历列表", calendar.list_calendars),
     _module(
         "calendar_current_term",

@@ -40,6 +40,7 @@ CLI tool 参数使用 snake_case。每条 `tongji tool` 命令只启动一次 Py
 | `notices_detail` | `GET` | `/api/notices/{notice_id}` | 查询通知详情 |
 | `notices_unread_count` | `GET` | `/api/notices/unread-count` | 查询未读通知数量 |
 | `courses_list` | `GET` | `/api/courses` | 查询排课课程 |
+| `courses_search` | `GET` | `/api/courses/search` | 查询全校排课课程 |
 | `calendar_list` | `GET` | `/api/calendar/list` | 查询校历列表 |
 | `calendar_current_term` | `GET` | `/api/calendar/current-term` | 查询当前学期 |
 | `calendar_current_week` | `GET` | `/api/calendar/current-week` | 查询当前教学周 |

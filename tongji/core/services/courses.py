@@ -4,6 +4,100 @@ from typing import Any
 
 from tongji.core.client import RawOneClient
 
+COURSE_SEARCH_PATH = "/api/arrangementservice/manualArrange/page"
+COURSE_SEARCH_REFERER = "https://1.tongji.edu.cn/taskResultQuery"
+COURSE_SEARCH_PAGE_SIZE = 200
+
+
+def _course_search_payload(
+    *,
+    calendar_id: int,
+    keyword: str,
+    page: int,
+    page_size: int,
+) -> dict[str, Any]:
+    return {
+        "condition": {
+            "trainingLevel": "",
+            "campus": "",
+            "calendar": calendar_id,
+            "college": "",
+            "course": keyword,
+            "ids": [],
+            "isChineseTeaching": None,
+        },
+        "pageNum_": page,
+        "pageSize_": page_size,
+    }
+
+
+async def search_all_courses(
+    client: RawOneClient,
+    *,
+    calendar_id: int,
+    keyword: str = "",
+) -> Any:
+    """Fetch every matching teaching class for a calendar.
+
+    The upstream endpoint requires a JSON request body. A small probe obtains
+    ``total_`` first, then every result page is fetched and merged into the
+    original raw response envelope.
+
+    Ref: XiaLing233/tongji-course-scheduler crawler/fetchCourseList.py.
+    """
+    headers = {"Referer": COURSE_SEARCH_REFERER}
+    first = await client.request(
+        "POST",
+        COURSE_SEARCH_PATH,
+        params={"profile": ""},
+        json=_course_search_payload(
+            calendar_id=calendar_id,
+            keyword=keyword,
+            page=1,
+            page_size=20,
+        ),
+        headers=headers,
+    )
+
+    if not isinstance(first, dict):
+        return first
+    first_data = first.get("data")
+    if not isinstance(first_data, dict) or not isinstance(first_data.get("list"), list):
+        return first
+
+    try:
+        total = max(0, int(first_data.get("total_", len(first_data["list"]))))
+    except (TypeError, ValueError):
+        return first
+    if total == 0:
+        return first
+
+    page_count = (total + COURSE_SEARCH_PAGE_SIZE - 1) // COURSE_SEARCH_PAGE_SIZE
+    items: list[Any] = []
+    for page in range(1, page_count + 1):
+        response = await client.request(
+            "POST",
+            COURSE_SEARCH_PATH,
+            params={"profile": ""},
+            json=_course_search_payload(
+                calendar_id=calendar_id,
+                keyword=keyword,
+                page=page,
+                page_size=COURSE_SEARCH_PAGE_SIZE,
+            ),
+            headers=headers,
+        )
+        if not isinstance(response, dict):
+            return response
+        response_data = response.get("data")
+        if not isinstance(response_data, dict) or not isinstance(response_data.get("list"), list):
+            return response
+        items.extend(response_data["list"])
+
+    merged = dict(first)
+    merged["data"] = {**first_data, "list": items}
+    return merged
+
 
 async def query_courses(
     client: RawOneClient,

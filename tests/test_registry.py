@@ -4,12 +4,12 @@ from tongji.modules import get_registry
 from tongji.server import create_app
 
 
-def test_registry_contains_45_unique_modules():
+def test_registry_contains_46_unique_modules():
     registry = get_registry()
 
-    assert len(registry) == 45
-    assert len({module.name for module in registry.all()}) == 45
-    assert len({(module.method, module.public_route) for module in registry.all()}) == 45
+    assert len(registry) == 46
+    assert len({module.name for module in registry.all()}) == 46
+    assert len({(module.method, module.public_route) for module in registry.all()}) == 46
 
 
 def test_every_module_has_models_and_documentation():
@@ -35,7 +35,7 @@ def test_openapi_documents_every_raw_module():
             response = operation["responses"]["200"]
             assert response["content"]["application/json"]["schema"]
 
-    assert len(raw_operations) == 45
+    assert len(raw_operations) == 46
 
 
 def test_openapi_exposes_14_agent_tools():

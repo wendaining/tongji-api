@@ -29,6 +29,16 @@ def test_courses_no_session(client):
     assert response.status_code == 409
 
 
+def test_courses_search_requires_calendar_id(client):
+    response = client.get("/api/courses/search")
+    assert response.status_code == 422
+
+
+def test_courses_search_no_session(client):
+    response = client.get("/api/courses/search?calendarId=122&keyword=操作系统")
+    assert response.status_code == 409
+
+
 def test_calendar_list_no_session(client):
     response = client.get("/api/calendar/list")
     assert response.status_code == 409
@@ -42,7 +52,7 @@ def test_cross_courses_apply_no_session(client):
 def test_module_metadata_lists_all_raw_modules(client):
     response = client.get("/meta/modules")
     assert response.status_code == 200
-    assert response.json()["count"] == 45
+    assert response.json()["count"] == 46
 
 
 def test_raw_route_validation_happens_before_upstream_call(client):
